@@ -1,0 +1,1480 @@
+﻿<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Meridian DLMM Analytics • Profile ghepappo</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', 'Inter', 'sans-serif'],
+            mono: ['"Geist Mono"', 'monospace'],
+          },
+          colors: {
+            bg: {
+              main: '#080B10',
+              card: '#0E131F',
+              subtle: '#141A29',
+              hover: '#1B2337',
+            },
+            border: {
+              main: '#1F293D',
+              light: '#2B3852',
+            },
+            brand: {
+              purple: '#9945FF',
+              sol: '#14F195',
+              cyan: '#06B6D4',
+              accent: '#6366F1',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #080B10;
+      color: #E2E8F0;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      -webkit-tap-highlight-color: transparent;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #080B10; }
+    ::-webkit-scrollbar-thumb { background: #222D42; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #32415E; }
+    .glow-emerald { box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.2); }
+    .glow-cyan { box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.2); }
+    .glass-card { background: rgba(14, 19, 31, 0.85); backdrop-filter: blur(12px); border: 1px solid #1F293D; }
+    @media (max-width: 640px) {
+      .cal-cell { min-height: 60px; }
+    }
+    @media (min-width: 641px) {
+      .cal-cell { min-height: 80px; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-brand-purple/30 selection:text-white pb-20 sm:pb-16">
+
+  <!-- TOP RESPONSIVE NAVIGATION -->
+  <header class="sticky top-0 z-40 w-full border-b border-border-main bg-bg-main/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+      
+      <!-- Brand & Profile -->
+      <div class="flex items-center gap-2.5 sm:gap-3">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-brand-purple to-brand-sol flex items-center justify-center shadow-lg shadow-brand-purple/20 flex-shrink-0">
+          <i data-lucide="layers" class="w-4 h-4 sm:w-5 sm:h-5 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="font-bold tracking-tight text-white text-sm sm:text-base">Meridian DLMM</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30 font-medium">v2.0</span>
+          </div>
+          <p class="text-[11px] text-slate-400 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Profile: <strong class="text-slate-200 font-mono">ghepappo</strong>
+          </p>
+        </div>
+      </div>
+
+      <!-- Desktop Navigation Controls -->
+      <div class="hidden lg:flex items-center gap-3">
+        <div class="bg-bg-subtle p-1 rounded-xl border border-border-main flex items-center gap-1">
+          <button id="btn-mode-paper" onclick="setTradingMode('paper')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            Paper Trading (<span id="nav-paper-count">39</span>)
+          </button>
+          <button id="btn-mode-real" onclick="setTradingMode('real')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200">
+            <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+            Real Trading (<span id="nav-real-count">0</span>)
+          </button>
+        </div>
+
+        <button id="btn-tz" onclick="toggleTimezone()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-card border border-border-main text-xs font-mono text-slate-300 hover:border-border-light hover:text-white transition">
+          <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span id="tz-label">WIB (UTC+7)</span>
+        </button>
+
+        <button onclick="fetchDashboardData(true)" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-purple/15 hover:bg-brand-purple/25 border border-brand-purple/30 text-xs font-medium text-purple-200 transition">
+          <i data-lucide="refresh-cw" id="refresh-icon" class="w-3.5 h-3.5"></i>
+          <span>Sync Data</span>
+        </button>
+
+        <div class="relative">
+          <button onclick="toggleExportMenu()" class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-bg-card border border-border-main text-xs font-medium text-slate-300 hover:border-border-light transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export</span>
+            <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+          </button>
+          <div id="export-menu" class="hidden absolute right-0 mt-2 w-40 rounded-xl bg-bg-card border border-border-main shadow-2xl z-50 p-1">
+            <a href="/api/export/csv" class="flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-slate-300 hover:bg-bg-hover hover:text-white">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Export CSV
+            </a>
+            <a href="/api/export/json" class="flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-slate-300 hover:bg-bg-hover hover:text-white">
+              <i data-lucide="file-json" class="w-4 h-4 text-brand-purple"></i> Export JSON
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Right Controls (Quick mode toggle + Hamburger) -->
+      <div class="flex lg:hidden items-center gap-2">
+        <div class="bg-bg-subtle p-0.5 rounded-lg border border-border-main flex items-center">
+          <button id="mobile-quick-paper" onclick="setTradingMode('paper')" class="px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-500/20 text-emerald-300">
+            Paper
+          </button>
+          <button id="mobile-quick-real" onclick="setTradingMode('real')" class="px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400">
+            Real
+          </button>
+        </div>
+
+        <button onclick="toggleMobileMenu()" class="p-2 rounded-xl bg-bg-card border border-border-main text-slate-300 hover:text-white focus:outline-none">
+          <i data-lucide="menu" id="hamburger-icon" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Mobile Slide-Down Menu Drawer -->
+    <div id="mobile-drawer" class="hidden lg:hidden border-t border-border-main bg-bg-card/95 backdrop-blur-xl px-4 py-4 space-y-4 shadow-2xl animate-in slide-in-from-top duration-200">
+      <div class="space-y-1.5">
+        <span class="text-[10px] text-slate-500 uppercase font-mono tracking-wider">Pilih Mode Trading</span>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="setTradingMode('paper'); toggleMobileMenu();" id="drawer-btn-paper" class="p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Paper (<span id="drawer-paper-count">39</span>)
+          </button>
+          <button onclick="setTradingMode('real'); toggleMobileMenu();" id="drawer-btn-real" class="p-2.5 rounded-xl border border-border-main bg-bg-main text-slate-400 text-xs font-semibold flex items-center justify-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-slate-500"></span> Real (<span id="drawer-real-count">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-border-main">
+        <button onclick="toggleTimezone()" class="p-2.5 rounded-xl bg-bg-main border border-border-main text-xs font-mono text-slate-200 flex items-center justify-center gap-2">
+          <i data-lucide="clock" class="w-4 h-4 text-slate-400"></i>
+          <span id="drawer-tz-label">WIB (UTC+7)</span>
+        </button>
+
+        <button onclick="fetchDashboardData(true); toggleMobileMenu();" class="p-2.5 rounded-xl bg-brand-purple/20 border border-brand-purple/40 text-xs font-semibold text-purple-200 flex items-center justify-center gap-2">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <span>Sync Data</span>
+        </button>
+      </div>
+
+      <div class="space-y-1.5 pt-2 border-t border-border-main">
+        <span class="text-[10px] text-slate-500 uppercase font-mono tracking-wider">Ekspor Data</span>
+        <div class="grid grid-cols-2 gap-2">
+          <a href="/api/export/csv" class="p-2 rounded-xl bg-bg-main border border-border-main text-xs text-slate-300 flex items-center justify-center gap-2">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> CSV
+          </a>
+          <a href="/api/export/json" class="p-2 rounded-xl bg-bg-main border border-border-main text-xs text-slate-300 flex items-center justify-center gap-2">
+            <i data-lucide="file-json" class="w-4 h-4 text-brand-purple"></i> JSON
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-4 sm:space-y-6 flex-1 w-full">
+
+    <!-- BOT STATUS & CRON BANNER -->
+    <section class="glass-card rounded-2xl p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border-l-4 border-l-brand-purple">
+      <div class="flex items-start sm:items-center gap-2.5 sm:gap-3">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand-purple/10 border border-brand-purple/20 flex items-center justify-center flex-shrink-0 text-brand-purple">
+          <i data-lucide="bot" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <h2 class="text-xs sm:text-sm font-semibold text-white">Agus Profit • Meteora DLMM Scanner</h2>
+            <span id="banner-mode-badge" class="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Paper (Cron 6x/day)
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5" id="banner-subtitle">
+            Jadwal: <span class="font-mono text-slate-300">Setiap 4 Jam</span> • Compounding Sizing: <span id="banner-compounding" class="font-mono text-brand-sol font-semibold">$95.04</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 text-xs font-mono bg-bg-main/60 p-2 sm:px-4 sm:py-2 rounded-xl border border-border-main text-center sm:text-left">
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Last Run</span>
+          <span id="cron-last-run" class="text-slate-200 text-[11px] sm:text-xs">15:12 WIB</span>
+        </div>
+        <div class="border-x border-border-main px-1">
+          <span class="text-slate-500 block text-[9px] uppercase">Next Scan</span>
+          <span id="cron-next-run" class="text-brand-sol font-semibold text-[11px] sm:text-xs">19:00 WIB</span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Runs Done</span>
+          <span id="cron-runs-done" class="text-slate-200 font-semibold text-[11px] sm:text-xs">427</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- HERO METRICS OVERVIEW (Responsive 2 cols on mobile, 6 cols on desktop) -->
+    <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
+      <div class="col-span-2 glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
+        <div class="absolute -right-8 -top-8 w-28 h-28 bg-brand-sol/10 rounded-full blur-2xl group-hover:bg-brand-sol/20 transition"></div>
+        <div class="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
+          <span id="kpi-equity-label">Total Portfolio Equity</span>
+          <i data-lucide="wallet" class="w-4 h-4 text-brand-sol"></i>
+        </div>
+        <div class="flex items-baseline gap-2 mt-1">
+          <span id="kpi-equity" class="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-white">$101.10</span>
+          <span id="kpi-roi" class="text-[11px] sm:text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">+66.73%</span>
+        </div>
+        <div class="mt-2.5 sm:mt-3 flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 border-t border-border-main pt-2 font-mono">
+          <span id="kpi-base-label">Base: <strong class="text-slate-300" id="kpi-base-val">$60.00</strong></span>
+          <span>Unrealized: <strong id="kpi-open-sub" class="text-brand-sol font-semibold">+$1.06</strong></span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-400 text-[11px] sm:text-xs">
+          <span>Realized PnL</span>
+          <i data-lucide="trending-up" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400"></i>
+        </div>
+        <div class="my-1.5 sm:my-2">
+          <div id="kpi-realized-pnl" class="text-lg sm:text-2xl font-bold font-mono text-emerald-400">+$40.04</div>
+          <div class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5" id="kpi-closed-trades-count">38 Trades</div>
+        </div>
+        <div class="text-[9px] sm:text-[10px] font-mono text-slate-500 flex justify-between">
+          <span>Gains: <strong class="text-emerald-400" id="kpi-total-gains">+$77.90</strong></span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-400 text-[11px] sm:text-xs">
+          <span>Win Rate</span>
+          <i data-lucide="award" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-purple"></i>
+        </div>
+        <div class="my-1.5 sm:my-2">
+          <div id="kpi-winrate" class="text-lg sm:text-2xl font-bold font-mono text-white">57.9%</div>
+          <div class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 font-mono">
+            <span id="kpi-wins" class="text-emerald-400 font-semibold">22W</span> / <span id="kpi-losses" class="text-rose-400 font-semibold">16L</span>
+          </div>
+        </div>
+        <div class="w-full bg-bg-main h-1.5 rounded-full overflow-hidden flex">
+          <div id="kpi-winrate-bar" class="bg-emerald-400 h-full" style="width: 57.9%"></div>
+          <div id="kpi-lossrate-bar" class="bg-rose-500 h-full" style="width: 42.1%"></div>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-400 text-[11px] sm:text-xs">
+          <span>Profit Factor</span>
+          <i data-lucide="scale" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400"></i>
+        </div>
+        <div class="my-1.5 sm:my-2">
+          <div id="kpi-profit-factor" class="text-lg sm:text-2xl font-bold font-mono text-cyan-400">2.1x</div>
+          <div class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Risk-Reward</div>
+        </div>
+        <div class="text-[9px] sm:text-[10px] font-mono text-slate-500">
+          Losses: <strong class="text-rose-400" id="kpi-total-loss">-$37.86</strong>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-slate-400 text-[11px] sm:text-xs">
+          <span>Fee Yield</span>
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400"></i>
+        </div>
+        <div class="my-1.5 sm:my-2">
+          <div id="kpi-total-fees" class="text-lg sm:text-2xl font-bold font-mono text-amber-400">+$44.46</div>
+          <div class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 font-mono">DLMM Active Bins</div>
+        </div>
+        <div class="text-[9px] sm:text-[10px] font-mono text-slate-500">
+          From Pool Vol
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVE POSITION SPOTLIGHT -->
+    <div id="active-position-container"></div>
+
+    <!-- MAIN VIEW: MONTHLY PNL CALENDAR & POOL BREAKDOWN -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+
+      <!-- LEFT: MONTHLY PNL CALENDAR (7 cols) -->
+      <section class="lg:col-span-7 glass-card rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-border-main pb-3 sm:pb-4">
+          <div class="flex items-center gap-2">
+            <div class="p-1.5 sm:p-2 rounded-xl bg-brand-sol/10 text-brand-sol">
+              <i data-lucide="calendar" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
+                Kalender PnL Harian
+              </h3>
+              <p class="text-[11px] text-slate-400">Pilih tanggal untuk memfilter riwayat trade</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5 self-start sm:self-auto w-full sm:w-auto justify-between sm:justify-start">
+            <button onclick="changeCalendarMonth(-1)" class="p-1.5 rounded-lg bg-bg-card hover:bg-bg-hover border border-border-main text-slate-300 hover:text-white transition">
+              <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+            <select id="calendar-month-select" onchange="onMonthSelectChange(this.value)" class="flex-1 sm:flex-none bg-bg-card border border-border-main text-xs font-semibold text-white px-2.5 py-1.5 rounded-lg focus:outline-none focus:border-brand-purple cursor-pointer">
+            </select>
+            <button onclick="changeCalendarMonth(1)" class="p-1.5 rounded-lg bg-bg-card hover:bg-bg-hover border border-border-main text-slate-300 hover:text-white transition">
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="month-summary-bar" class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-bg-main/70 p-2.5 sm:p-3 rounded-xl border border-border-main text-xs font-mono">
+        </div>
+
+        <div class="grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider py-1 border-b border-border-main/50">
+          <div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div><div>Min</div>
+        </div>
+
+        <div id="calendar-grid" class="grid grid-cols-7 gap-1 sm:gap-1.5">
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-2 text-[10px] sm:text-[11px] text-slate-400 border-t border-border-main">
+          <div class="flex items-center gap-2.5 sm:gap-3">
+            <span class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded bg-emerald-500/50 border border-emerald-400"></span> Profit
+            </span>
+            <span class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded bg-rose-500/50 border border-rose-400"></span> Loss
+            </span>
+            <span class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded bg-bg-subtle border border-border-main"></span> No Trade
+            </span>
+          </div>
+
+          <button id="btn-clear-date-filter" onclick="clearDateFilter()" class="hidden px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-border-light flex items-center gap-1">
+            <i data-lucide="x" class="w-3 h-3"></i>
+            <span>Reset Tanggal</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- RIGHT: DETAIL PER POOL (5 cols) -->
+      <section class="lg:col-span-5 glass-card rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-border-main pb-3 sm:pb-4 mb-3 sm:mb-4">
+            <div class="flex items-center gap-2">
+              <div class="p-1.5 sm:p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+                <i data-lucide="pie-chart" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+              </div>
+              <div>
+                <h3 class="text-sm sm:text-base font-semibold text-white">Detail Per Pool</h3>
+                <p class="text-[11px] text-slate-400">Performa berdasarkan likuiditas pair</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-bg-main border border-border-main text-slate-300" id="pools-count-badge">7 Pools</span>
+          </div>
+
+          <div id="pools-list" class="space-y-2">
+          </div>
+        </div>
+
+        <div class="bg-bg-main/60 p-3 rounded-xl border border-border-main text-xs space-y-1 mt-3">
+          <div class="font-semibold text-slate-300 flex items-center gap-1.5 text-[11px] sm:text-xs">
+            <i data-lucide="zap" class="w-3.5 h-3.5 text-brand-sol"></i>
+            DLMM Alpha Yield
+          </div>
+          <p class="text-slate-400 text-[10px] sm:text-[11px] leading-relaxed">
+            Strategi DLMM aktif menghasilkan rata-rata <strong class="text-brand-sol font-mono">+1.84% fee yield ekstra</strong> dibanding hold 50/50 selama rentang trading.
+          </p>
+        </div>
+      </section>
+
+    </div>    <!-- CHARTS SECTION: EQUITY GROWTH & DAILY PNL -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+      <div class="lg:col-span-8 glass-card rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="p-1.5 sm:p-2 rounded-xl bg-brand-purple/10 text-brand-purple">
+              <i data-lucide="activity" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-xs sm:text-sm font-semibold text-white">Kurva Pertumbuhan Portofolio (Equity Curve)</h3>
+              <p class="text-[10px] sm:text-xs text-slate-400" id="chart-equity-sub">Pertumbuhan modal dari $60.00 base capital</p>
+            </div>
+          </div>
+          <span class="text-xs font-mono text-brand-sol font-bold bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20" id="chart-equity-tag">$101.10</span>
+        </div>
+        <div class="h-48 sm:h-64 w-full">
+          <canvas id="equityChart"></canvas>
+        </div>
+      </div>
+
+      <div class="lg:col-span-4 glass-card rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+        <div class="flex items-center gap-2">
+          <div class="p-1.5 sm:p-2 rounded-xl bg-amber-500/10 text-amber-400">
+            <i data-lucide="bar-chart-2" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-xs sm:text-sm font-semibold text-white">Distribusi PnL Harian</h3>
+            <p class="text-[10px] sm:text-xs text-slate-400">Besaran profit & loss per hari aktif</p>
+          </div>
+        </div>
+        <div class="h-48 sm:h-64 w-full">
+          <canvas id="dailyPnlChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- REAL TRADING SPECIFIC STATUS CARD (SHOWN ONLY IN REAL MODE) -->
+    <section id="real-trading-info-card" class="hidden glass-card rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 border-l-4 border-l-cyan-400 glow-cyan">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-main pb-3 sm:pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+            <h3 class="text-sm sm:text-base font-bold text-white">Real Trading Mode On-Chain Monitor</h3>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5">Live monitoring status wallet on-chain Solana dan eksekusi posisi real Meridian</p>
+        </div>
+        <div class="text-[11px] font-mono bg-bg-main px-3 py-1.5 rounded-xl border border-border-main text-slate-300 break-all sm:break-normal">
+          Wallet: <span class="text-brand-sol font-semibold">9uNSXiB9...SBR</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bg-bg-main/70 p-3.5 rounded-xl border border-border-main space-y-1">
+          <span class="text-[10px] text-slate-400 uppercase font-mono">Status Bot Saat Ini</span>
+          <div class="text-xs sm:text-sm font-semibold text-emerald-400 flex items-center gap-1.5">
+            <i data-lucide="shield-check" class="w-4 h-4"></i> Paper Simulation Only
+          </div>
+          <span class="text-[10px] text-slate-500 font-mono">Real private keys tidak pernah digunakan</span>
+        </div>
+
+        <div class="bg-bg-main/70 p-3.5 rounded-xl border border-border-main space-y-1">
+          <span class="text-[10px] text-slate-400 uppercase font-mono">Posisi Real Terbuka On-Chain</span>
+          <div class="text-xl sm:text-2xl font-mono font-bold text-white" id="real-open-count">0</div>
+          <span class="text-[10px] text-slate-500 font-mono">Tidak ada posisi real yang aktif</span>
+        </div>
+
+        <div class="bg-bg-main/70 p-3.5 rounded-xl border border-border-main space-y-1">
+          <span class="text-[10px] text-slate-400 uppercase font-mono">Target Riset Penelitian</span>
+          <div class="text-xs sm:text-sm font-bold text-cyan-400 font-mono">39 / 100 Paper Samples</div>
+          <span class="text-[10px] text-slate-500 font-mono">Kumpulkan 100 sampel sebelum migrasi real</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRADE HISTORY EXPLORER -->
+    <section class="glass-card rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border-main pb-3 sm:pb-4">
+        <div>
+          <h3 class="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
+            <span id="table-title">Riwayat Seluruh Trade (Paper)</span>
+            <span id="table-trades-count" class="text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded-full bg-brand-purple/15 text-purple-300 border border-brand-purple/30">39 Records</span>
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Detail transaksi posisi DLMM Meteora, bin range, durasi, dan catatan evaluasi</p>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <select id="filter-pool" onchange="applyTradeFilters()" class="flex-1 sm:flex-none bg-bg-main border border-border-main text-xs text-slate-200 px-2.5 py-1.5 rounded-xl focus:outline-none focus:border-brand-purple">
+            <option value="ALL">Semua Pool</option>
+          </select>
+
+          <select id="filter-status" onchange="applyTradeFilters()" class="flex-1 sm:flex-none bg-bg-main border border-border-main text-xs text-slate-200 px-2.5 py-1.5 rounded-xl focus:outline-none focus:border-brand-purple">
+            <option value="ALL">Semua Status</option>
+            <option value="OPEN">Open Positions</option>
+            <option value="CLOSED">Closed Positions</option>
+            <option value="WIN">Win Only (+)</option>
+            <option value="LOSS">Loss Only (-)</option>
+          </select>
+
+          <div class="relative w-full sm:w-48">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="filter-search" oninput="applyTradeFilters()" placeholder="Cari pool / alasan..." class="bg-bg-main border border-border-main text-xs text-slate-200 pl-8 pr-3 py-1.5 rounded-xl focus:outline-none focus:border-brand-purple w-full">
+          </div>
+        </div>
+      </div>
+
+      <div class="block sm:hidden text-[10px] text-slate-400 font-mono text-center py-0.5">
+        👈 Geser tabel ke kanan untuk melihat rincian penuh 👉
+      </div>
+
+      <div class="overflow-x-auto -mx-3.5 sm:mx-0 px-3.5 sm:px-0">
+        <table class="w-full text-left text-xs font-mono min-w-[700px]">
+          <thead>
+            <tr class="border-b border-border-main text-slate-400 uppercase text-[10px] tracking-wider bg-bg-main/40">
+              <th class="py-2.5 px-3"># ID</th>
+              <th class="py-2.5 px-3">Waktu (WIB)</th>
+              <th class="py-2.5 px-3">Pool</th>
+              <th class="py-2.5 px-3">Status</th>
+              <th class="py-2.5 px-3 text-right">Modal</th>
+              <th class="py-2.5 px-3 text-right">Net PnL ($)</th>
+              <th class="py-2.5 px-3 text-right">PnL (%)</th>
+              <th class="py-2.5 px-3 text-right">Durasi</th>
+              <th class="py-2.5 px-3">Bin Range</th>
+              <th class="py-2.5 px-3">Alasan Exit / Status</th>
+              <th class="py-2.5 px-3 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="trades-table-body" class="divide-y divide-border-main/50">
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 pt-2 border-t border-border-main gap-1">
+        <div id="table-showing-info">Menampilkan seluruh trade</div>
+        <div class="text-[10px] font-mono text-slate-500">Klik baris mana saja untuk melihat Deep-Dive Drawer</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- DEEP-DIVE TRADE DETAIL MODAL (Responsive Bottom Sheet on Mobile) -->
+  <div id="trade-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center sm:p-4">
+    <div class="bg-bg-card border border-border-light rounded-t-2xl sm:rounded-2xl w-full max-w-3xl max-h-[88vh] sm:max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-200">
+      <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-border-main flex items-center justify-between bg-bg-subtle/50">
+        <div class="flex items-center gap-2.5 sm:gap-3">
+          <div id="modal-pool-icon" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand-purple/10 border border-brand-purple/20 flex items-center justify-center text-brand-purple font-bold text-xs sm:text-sm flex-shrink-0">
+            SOL
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <h3 id="modal-trade-title" class="text-sm sm:text-base font-bold text-white">Trade Detail</h3>
+              <span id="modal-trade-status-badge" class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-medium">CLOSED</span>
+            </div>
+            <p id="modal-trade-subtitle" class="text-[10px] sm:text-xs text-slate-400 font-mono truncate max-w-[200px] sm:max-w-md">ID: trade_1</p>
+          </div>
+        </div>
+        <button onclick="closeTradeModal()" class="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-bg-hover transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto font-sans flex-1 text-xs">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 font-mono">
+          <div class="bg-bg-main p-2.5 sm:p-3 rounded-xl border border-border-main">
+            <span class="text-slate-500 block text-[9px] uppercase">Net PnL</span>
+            <span id="modal-pnl-usd" class="text-sm sm:text-base font-bold text-emerald-400">+$2.43</span>
+            <span id="modal-pnl-pct" class="text-[10px] text-slate-400 ml-0.5">(+4.05%)</span>
+          </div>
+          <div class="bg-bg-main p-2.5 sm:p-3 rounded-xl border border-border-main">
+            <span class="text-slate-500 block text-[9px] uppercase">Capital Size</span>
+            <span id="modal-capital" class="text-sm sm:text-base font-bold text-white">$60.00</span>
+          </div>
+          <div class="bg-bg-main p-2.5 sm:p-3 rounded-xl border border-border-main">
+            <span class="text-slate-500 block text-[9px] uppercase">Fee Yield</span>
+            <span id="modal-fee" class="text-sm sm:text-base font-bold text-amber-400">+$0.48</span>
+          </div>
+          <div class="bg-bg-main p-2.5 sm:p-3 rounded-xl border border-border-main">
+            <span class="text-slate-500 block text-[9px] uppercase">Holding Time</span>
+            <span id="modal-duration" class="text-sm sm:text-base font-bold text-slate-200">18.5 Jam</span>
+          </div>
+        </div>
+
+        <div class="bg-bg-main p-3 sm:p-4 rounded-xl border border-border-main space-y-2.5 font-mono">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-300 text-[11px] sm:text-xs">DLMM Bin Structure</span>
+            <span id="modal-bin-inrange" class="px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">In Range</span>
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between text-[10px] sm:text-[11px] text-slate-400">
+              <span>Lower: <strong id="modal-bin-lower" class="text-white">-6075</strong></span>
+              <span>Entry: <strong id="modal-bin-entry" class="text-cyan-400">-5915</strong></span>
+              <span>Upper: <strong id="modal-bin-upper" class="text-white">-5685</strong></span>
+            </div>
+            <div class="w-full bg-bg-card h-2.5 sm:h-3 rounded-full overflow-hidden relative border border-border-main">
+              <div id="modal-bin-progress" class="bg-gradient-to-r from-brand-purple to-brand-sol h-full rounded-full" style="width: 50%"></div>
+            </div>
+            <div class="flex justify-between text-[9px] sm:text-[10px] text-slate-500">
+              <span id="modal-bin-step">Bin Step: 20 bps</span>
+              <span id="modal-bin-close">Exit Active Bin: -5906</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-semibold text-slate-200 flex items-center gap-1.5 text-xs">
+            <i data-lucide="git-compare" class="w-3.5 h-3.5 text-brand-purple"></i>
+            Perbandingan Baseline Return
+          </h4>
+          <div class="grid grid-cols-3 gap-1.5 sm:gap-2 font-mono text-center">
+            <div class="bg-bg-main p-2 sm:p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+              <span class="text-slate-400 text-[9px] block">DLMM</span>
+              <span id="modal-base-dlmm" class="text-xs sm:text-sm font-bold text-emerald-400">+4.05%</span>
+            </div>
+            <div class="bg-bg-main p-2 sm:p-2.5 rounded-xl border border-border-main">
+              <span class="text-slate-400 text-[9px] block">50/50 Hold</span>
+              <span id="modal-base-5050" class="text-xs sm:text-sm font-bold text-slate-300">+2.10%</span>
+            </div>
+            <div class="bg-bg-main p-2 sm:p-2.5 rounded-xl border border-border-main">
+              <span class="text-slate-400 text-[9px] block">Volatile Only</span>
+              <span id="modal-base-volatile" class="text-xs sm:text-sm font-bold text-slate-300">+3.85%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-bg-main p-3 sm:p-4 rounded-xl border border-border-main space-y-1">
+          <span class="text-slate-500 text-[9px] uppercase font-mono">Catatan Evaluasi / Alasan Exit</span>
+          <p id="modal-exit-reason" class="text-slate-200 text-xs leading-relaxed font-mono whitespace-pre-wrap">
+            PAPER_TP_DONE: Take profit close per user request.
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-semibold text-slate-200 flex items-center justify-between text-xs">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="list-checks" class="w-3.5 h-3.5 text-brand-sol"></i>
+              Riwayat Monitor Checks (<span id="modal-checks-count">10</span> Checks)
+            </span>
+          </h4>
+          <div class="max-h-40 sm:max-h-48 overflow-y-auto rounded-xl border border-border-main">
+            <table class="w-full text-left font-mono text-[10px] sm:text-[11px] min-w-[500px]">
+              <thead class="bg-bg-main text-slate-400 border-b border-border-main sticky top-0">
+                <tr>
+                  <th class="p-2">Waktu (WIB)</th>
+                  <th class="p-2">Active Bin</th>
+                  <th class="p-2">Harga</th>
+                  <th class="p-2 text-right">Fee/TVL</th>
+                  <th class="p-2 text-right">Est. PnL</th>
+                  <th class="p-2">Status</th>
+                </tr>
+              </thead>
+              <tbody id="modal-checks-tbody" class="divide-y divide-border-main/40 bg-bg-main/40">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-4 sm:px-6 py-3 border-t border-border-main flex justify-end bg-bg-subtle/50">
+        <button onclick="closeTradeModal()" class="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>  <!-- APPLICATION JAVASCRIPT LOGIC -->
+  <script>
+    let fullData = null;
+    let currentTradingMode = 'paper';
+    let currentTimezone = 'WIB';
+    let selectedMonth = null;
+    let selectedDateFilter = null;
+    let equityChartInstance = null;
+    let dailyPnlChartInstance = null;
+
+    function toggleMobileMenu() {
+      const drawer = document.getElementById('mobile-drawer');
+      const icon = document.getElementById('hamburger-icon');
+      if (drawer.classList.contains('hidden')) {
+        drawer.classList.remove('hidden');
+        if (icon) icon.setAttribute('data-lucide', 'x');
+      } else {
+        drawer.classList.add('hidden');
+        if (icon) icon.setAttribute('data-lucide', 'menu');
+      }
+      lucide.createIcons();
+    }
+
+    function getActiveDataset() {
+      if (!fullData) return { kpis: {}, pools: [], dailyPnl: {}, monthlyStats: [], equityGrowthSeries: [], trades: [] };
+      return currentTradingMode === 'paper' ? (fullData.paper || {}) : (fullData.real || {});
+    }
+
+    async function fetchDashboardData(isManual = false) {
+      const refreshIcon = document.getElementById('refresh-icon');
+      if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+      try {
+        const response = await fetch('/api/data');
+        if (!response.ok) throw new Error('Network error fetching data');
+        fullData = await response.json();
+        
+        renderAll();
+        if (isManual) {
+          showToast('Data berhasil disinkronkan dari VPS!');
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+      }
+    }
+
+    function renderAll() {
+      if (!fullData) return;
+
+      const activeData = getActiveDataset();
+      renderNavBadges();
+      renderBotInfo();
+      renderKPIs(activeData);
+      renderActivePosition(activeData);
+      renderMonthlyCalendar(activeData);
+      renderPoolsBreakdown(activeData);
+      renderCharts(activeData);
+      renderTradesTable(activeData);
+      lucide.createIcons();
+    }
+
+    function renderNavBadges() {
+      const paperCount = fullData.paper?.trades?.length || 0;
+      const realCount = fullData.real?.trades?.length || 0;
+      document.getElementById('nav-paper-count').textContent = paperCount;
+      document.getElementById('nav-real-count').textContent = realCount;
+      document.getElementById('drawer-paper-count').textContent = paperCount;
+      document.getElementById('drawer-real-count').textContent = realCount;
+    }
+
+    function renderBotInfo() {
+      const bot = fullData.botInfo || {};
+      const activeData = getActiveDataset();
+      const kpis = activeData.kpis || {};
+      
+      const badge = document.getElementById('banner-mode-badge');
+      const subtitle = document.getElementById('banner-subtitle');
+
+      if (currentTradingMode === 'paper') {
+        badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Paper (Cron 6x/day)';
+        subtitle.innerHTML = `Jadwal: <span class="font-mono text-slate-300">Setiap 4 Jam</span> • Compounding Sizing: <span class="font-mono text-brand-sol font-semibold">$${(kpis.currentCompoundingSize || 95.04).toFixed(2)}</span>`;
+      } else {
+        badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center gap-1';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> Real Standby (On-Chain Safe)';
+        subtitle.innerHTML = `Wallet: <span class="font-mono text-slate-300">9uNSXiB9...SBR</span> • Posisi Real: <span class="font-mono text-cyan-300 font-semibold">0 Real Trades</span>`;
+      }
+
+      const lastRunEl = document.getElementById('cron-last-run');
+      if (lastRunEl && bot.lastRunAtUtc) {
+        lastRunEl.textContent = formatDateTimeShort(bot.lastRunAtUtc);
+      }
+
+      const nextRunEl = document.getElementById('cron-next-run');
+      if (nextRunEl && bot.nextRunAtUtc) {
+        nextRunEl.textContent = formatDateTimeShort(bot.nextRunAtUtc);
+      }
+
+      const runsDoneEl = document.getElementById('cron-runs-done');
+      if (runsDoneEl) runsDoneEl.textContent = bot.runsCompleted || '427';
+    }
+
+    function renderKPIs(activeData) {
+      const k = activeData.kpis || {};
+      const isPaper = currentTradingMode === 'paper';
+
+      document.getElementById('kpi-equity-label').textContent = isPaper ? 'Total Paper Equity' : 'Real On-Chain Equity';
+      document.getElementById('kpi-equity').textContent = `$${(k.totalEquityUsd || 0).toFixed(2)}`;
+      
+      const roiEl = document.getElementById('kpi-roi');
+      roiEl.textContent = `${k.roiPct >= 0 ? '+' : ''}${(k.roiPct || 0).toFixed(2)}% ROI`;
+      roiEl.className = `text-[11px] sm:text-xs font-mono font-semibold px-2 py-0.5 rounded-md ${k.roiPct > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}`;
+
+      document.getElementById('kpi-base-val').textContent = `$${(k.baseCapitalUsd || 0).toFixed(2)}`;
+      document.getElementById('kpi-open-sub').textContent = `${(k.openPnlUsd || 0) >= 0 ? '+' : ''}$${(k.openPnlUsd || 0).toFixed(2)}`;
+      
+      const realPnlEl = document.getElementById('kpi-realized-pnl');
+      realPnlEl.textContent = `${(k.realizedPnlUsd || 0) >= 0 ? '+' : ''}$${(k.realizedPnlUsd || 0).toFixed(2)}`;
+      realPnlEl.className = `text-lg sm:text-2xl font-bold font-mono ${(k.realizedPnlUsd || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      
+      document.getElementById('kpi-closed-trades-count').textContent = `${k.closedTrades || 0} Trades`;
+      document.getElementById('kpi-total-gains').textContent = `+$${(k.totalGainUsd || 0).toFixed(2)}`;
+      document.getElementById('kpi-total-loss').textContent = `-$${(k.totalLossUsd || 0).toFixed(2)}`;
+      
+      document.getElementById('kpi-winrate').textContent = `${(k.winRatePct || 0).toFixed(1)}%`;
+      document.getElementById('kpi-wins').textContent = `${k.wins || 0}W`;
+      document.getElementById('kpi-losses').textContent = `${k.losses || 0}L`;
+      
+      document.getElementById('kpi-winrate-bar').style.width = `${k.winRatePct || 0}%`;
+      document.getElementById('kpi-lossrate-bar').style.width = `${100 - (k.winRatePct || 0)}%`;
+
+      document.getElementById('kpi-profit-factor').textContent = `${(k.profitFactor || 0).toFixed(1)}x`;
+      document.getElementById('kpi-total-fees').textContent = `+$${(k.totalFeesUsd || 0).toFixed(2)}`;
+    }
+
+    function renderActivePosition(activeData) {
+      const container = document.getElementById('active-position-container');
+      const openTrades = activeData.trades?.filter(t => t.status.includes('OPEN')) || [];
+
+      if (openTrades.length === 0) {
+        if (currentTradingMode === 'real') {
+          container.innerHTML = `
+            <div class="glass-card rounded-2xl p-3.5 sm:p-4 border border-border-main flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-slate-400">
+              <div class="flex items-center gap-2">
+                <i data-lucide="info" class="w-4 h-4 text-cyan-400 flex-shrink-0"></i>
+                <span><strong>Real Trading Mode Aktif:</strong> Belum ada transaksi real on-chain. Silakan beralih ke <strong>Paper Trading</strong> untuk 40 data simulasi.</span>
+              </div>
+              <button onclick="setTradingMode('paper')" class="w-full sm:w-auto px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold hover:bg-emerald-500/30 transition text-center">
+                Buka Paper Trading
+              </button>
+            </div>
+          `;
+        } else {
+          container.innerHTML = '';
+        }
+        return;
+      }
+
+      const pos = openTrades[0];
+      const livePriceStr = pos.currentPrice ? `$${pos.currentPrice.toFixed(2)}` : '-';
+      const entryPriceStr = pos.entryPrice ? `$${pos.entryPrice.toFixed(2)}` : '-';
+
+      container.innerHTML = `
+        <div class="glass-card rounded-2xl p-4 sm:p-5 border-l-4 border-l-brand-sol glow-emerald space-y-3">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+            <div class="flex items-center gap-2.5 sm:gap-3">
+              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-brand-sol font-bold text-xs sm:text-sm flex-shrink-0">
+                ${pos.poolName.split('-')[0]}
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    ACTIVE POSITION #${pos.id.replace('trade_', '')} (${currentTradingMode.toUpperCase()})
+                  </span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono font-semibold flex items-center gap-1">
+                    <i data-lucide="zap" class="w-3 h-3 text-cyan-400"></i> Live On-Chain Quote
+                  </span>
+                </div>
+                <h3 class="text-sm sm:text-base font-bold text-white mt-1">${pos.poolName} • Capital: <strong class="text-brand-sol font-mono">$${pos.capitalUsd.toFixed(2)}</strong></h3>
+                <p class="text-[11px] text-slate-400 font-mono">
+                  Opened: ${pos.entryDateInfo?.wibString || ''} • Durasi: <strong class="text-slate-200">${pos.holdingHours} Jam</strong>
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 sm:flex items-center gap-3 sm:gap-6 font-mono text-xs border-t sm:border-t-0 border-border-main pt-2 sm:pt-0">
+              <div>
+                <span class="text-slate-500 block text-[9px] uppercase">Live Unrealized</span>
+                <span class="text-sm sm:text-lg font-bold ${pos.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                  ${pos.pnlUsd >= 0 ? '+' : ''}$${pos.pnlUsd.toFixed(2)} (${pos.pnlPct >= 0 ? '+' : ''}${pos.pnlPct.toFixed(2)}%)
+                </span>
+              </div>
+              <div>
+                <span class="text-slate-500 block text-[9px] uppercase">Harga SOL Live</span>
+                <span class="text-sm sm:text-base font-semibold text-slate-200">${livePriceStr}</span>
+                <span class="text-[9px] text-slate-500 block font-mono">Entry: ${entryPriceStr}</span>
+              </div>
+              <div class="text-right sm:text-left">
+                <span class="text-slate-500 block text-[9px] uppercase">Active Bin</span>
+                <span class="text-sm sm:text-base font-bold text-brand-sol">${pos.bins.closeActiveBin ?? pos.bins.entryActiveBin}</span>
+                <span class="text-[9px] ${pos.bins.inRange ? 'text-emerald-400' : 'text-rose-400'} block font-mono font-semibold">
+                  ${pos.bins.inRange ? 'In Range' : 'Out of Range'}
+                </span>
+              </div>
+            </div>
+
+            <button onclick="openTradeModal('${pos.id}')" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold transition text-center flex items-center justify-center gap-1.5">
+              <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+              <span>View Live Audit</span>
+            </button>
+          </div>
+
+          <div class="bg-bg-main/60 p-2.5 rounded-xl border border-border-main/60 flex items-center justify-between text-[11px] font-mono text-slate-400 flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="radio" class="w-3.5 h-3.5 text-brand-sol animate-pulse"></i>
+              <span>Live Quote Sync: <strong>${pos.poolName} (Bin ${pos.bins.closeActiveBin})</strong> • Real-Time On-Chain Quote</span>
+            </div>
+            <div class="text-slate-500">
+              Range: <strong class="text-slate-300">${pos.bins.lowerBin}..${pos.bins.upperBin}</strong> (Step ${pos.bins.binStepBps || 1} bps)
+            </div>
+          </div>
+        </div>
+      `;
+    }    function renderMonthlyCalendar(activeData) {
+      const dailyMap = activeData.dailyPnl || {};
+      const monthlyStats = activeData.monthlyStats || [];
+      const selectEl = document.getElementById('calendar-month-select');
+
+      if (monthlyStats.length === 0) {
+        selectEl.innerHTML = `<option value="none">Belum Ada Transaksi</option>`;
+        document.getElementById('month-summary-bar').innerHTML = `
+          <div class="col-span-2 sm:col-span-4 text-center py-2 text-slate-500 font-sans text-xs">
+            Tidak ada data transaksi pada mode ${currentTradingMode === 'paper' ? 'Paper' : 'Real'}.
+          </div>
+        `;
+        document.getElementById('calendar-grid').innerHTML = `
+          <div class="col-span-7 text-center py-6 text-slate-500 font-sans text-xs bg-bg-main/40 rounded-xl border border-border-main/50">
+            Belum ada rekam transaksi ${currentTradingMode === 'paper' ? 'Paper' : 'Real'} yang tercatat.
+          </div>
+        `;
+        document.getElementById('btn-clear-date-filter').classList.add('hidden');
+        return;
+      }
+
+      const monthsAvailable = monthlyStats.map(m => m.month);
+      if (!selectedMonth || !monthsAvailable.includes(selectedMonth)) {
+        selectedMonth = monthsAvailable[0];
+      }
+
+      selectEl.innerHTML = monthsAvailable.map(m => {
+        const [y, mo] = m.split('-');
+        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const name = `${monthNames[parseInt(mo, 10) - 1]} ${y}`;
+        return `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${name}</option>`;
+      }).join('');
+
+      const currentMonthData = monthlyStats.find(m => m.month === selectedMonth) || {
+        pnlUsd: 0, tradeCount: 0, winCount: 0, lossCount: 0, greenDaysCount: 0, redDaysCount: 0
+      };
+
+      const summaryBar = document.getElementById('month-summary-bar');
+      summaryBar.innerHTML = `
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Total Month PnL</span>
+          <span class="text-xs sm:text-sm font-bold ${currentMonthData.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+            ${currentMonthData.pnlUsd >= 0 ? '+' : ''}$${currentMonthData.pnlUsd.toFixed(2)}
+          </span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Win vs Loss</span>
+          <span class="text-xs sm:text-sm font-semibold text-slate-200">
+            <strong class="text-emerald-400">${currentMonthData.greenDaysCount || 0}H</strong> / <strong class="text-rose-400">${currentMonthData.redDaysCount || 0}M</strong>
+          </span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Month Trades</span>
+          <span class="text-xs sm:text-sm font-semibold text-slate-200">${currentMonthData.tradeCount || 0} Trades</span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Best Day</span>
+          <span class="text-xs sm:text-sm font-bold text-emerald-400">
+            ${currentMonthData.bestDayPnl > -Infinity ? '+$' + currentMonthData.bestDayPnl.toFixed(2) : '-'}
+          </span>
+        </div>
+      `;
+
+      const [yearStr, monthStr] = selectedMonth.split('-');
+      const year = parseInt(yearStr, 10);
+      const monthIndex = parseInt(monthStr, 10) - 1;
+
+      const firstDay = new Date(year, monthIndex, 1);
+      const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+      
+      let startDayOfWeek = firstDay.getDay() - 1;
+      if (startDayOfWeek === -1) startDayOfWeek = 6;
+
+      const gridEl = document.getElementById('calendar-grid');
+      let cellsHtml = '';
+
+      for (let i = 0; i < startDayOfWeek; i++) {
+        cellsHtml += `<div class="cal-cell rounded-xl bg-bg-main/30 border border-border-main/20 opacity-20"></div>`;
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${yearStr}-${monthStr.padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dayData = dailyMap[dateStr];
+        const isSelected = selectedDateFilter === dateStr;
+
+        if (dayData && dayData.tradeCount > 0) {
+          const isProfit = dayData.pnlUsd >= 0;
+          const pnlShort = isProfit 
+            ? `+$${Math.abs(dayData.pnlUsd) >= 10 ? dayData.pnlUsd.toFixed(1) : dayData.pnlUsd.toFixed(2)}`
+            : `-$${Math.abs(dayData.pnlUsd) >= 10 ? Math.abs(dayData.pnlUsd).toFixed(1) : Math.abs(dayData.pnlUsd).toFixed(2)}`;
+          
+          const pnlFull = `${isProfit ? '+' : ''}$${dayData.pnlUsd.toFixed(2)}`;
+          const pnlClass = isProfit ? 'text-emerald-400' : 'text-rose-400';
+          const bgClass = isProfit ? 'bg-emerald-500/15 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-rose-500/15 border-rose-500/30 hover:bg-rose-500/25';
+          const selectedRing = isSelected ? 'ring-2 ring-brand-purple border-brand-purple' : '';
+
+          cellsHtml += `
+            <div onclick="filterByDate('${dateStr}')" class="cal-cell rounded-xl p-1 sm:p-2 flex flex-col justify-between cursor-pointer border transition ${bgClass} ${selectedRing} group overflow-hidden">
+              <div class="flex justify-between items-center text-[9px] sm:text-[10px] font-mono leading-none">
+                <span class="font-bold text-slate-300 group-hover:text-white">${d}</span>
+                <span class="px-1 py-0.2 rounded bg-bg-main/90 text-slate-300 font-semibold text-[8px] sm:text-[9px]">${dayData.tradeCount}t</span>
+              </div>
+              <div class="text-right my-auto">
+                <div class="text-[9px] sm:text-xs font-bold font-mono ${pnlClass} leading-tight truncate" title="${pnlFull}">${pnlShort}</div>
+              </div>
+              <div class="flex items-center justify-between text-[8px] sm:text-[9px] text-slate-400 font-mono leading-none">
+                <span class="hidden sm:inline">${dayData.winCount}W/${dayData.lossCount}L</span>
+                <div class="flex sm:hidden items-center gap-0.5 ml-auto">
+                  ${dayData.winCount > 0 ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>' : ''}
+                  ${dayData.lossCount > 0 ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>' : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          const selectedRing = isSelected ? 'ring-2 ring-brand-purple' : '';
+          cellsHtml += `
+            <div onclick="filterByDate('${dateStr}')" class="cal-cell rounded-xl p-1 sm:p-2 flex flex-col justify-between bg-bg-main/50 border border-border-main/50 text-slate-600 hover:border-border-light transition cursor-pointer ${selectedRing} overflow-hidden">
+              <div class="text-[9px] sm:text-[10px] font-mono font-medium leading-none">${d}</div>
+              <div class="text-right text-[8px] sm:text-[10px] font-mono text-slate-600 my-auto">-</div>
+              <div class="h-1 sm:h-2"></div>
+            </div>
+          `;
+        }
+      }
+
+      gridEl.innerHTML = cellsHtml;
+
+      const resetBtn = document.getElementById('btn-clear-date-filter');
+      if (selectedDateFilter) {
+        resetBtn.classList.remove('hidden');
+      } else {
+        resetBtn.classList.add('hidden');
+      }
+    }
+
+    function onMonthSelectChange(val) {
+      selectedMonth = val;
+      renderMonthlyCalendar(getActiveDataset());
+    }
+
+    function changeCalendarMonth(delta) {
+      const activeData = getActiveDataset();
+      const monthlyStats = activeData.monthlyStats || [];
+      const monthsAvailable = monthlyStats.map(m => m.month);
+      const currentIndex = monthsAvailable.indexOf(selectedMonth);
+      if (currentIndex !== -1) {
+        const nextIndex = currentIndex - delta;
+        if (nextIndex >= 0 && nextIndex < monthsAvailable.length) {
+          selectedMonth = monthsAvailable[nextIndex];
+          renderMonthlyCalendar(activeData);
+        }
+      }
+    }
+
+    function filterByDate(dateStr) {
+      if (selectedDateFilter === dateStr) {
+        selectedDateFilter = null;
+      } else {
+        selectedDateFilter = dateStr;
+      }
+      renderMonthlyCalendar(getActiveDataset());
+      renderTradesTable(getActiveDataset());
+    }
+
+    function clearDateFilter() {
+      selectedDateFilter = null;
+      renderMonthlyCalendar(getActiveDataset());
+      renderTradesTable(getActiveDataset());
+    }
+
+    function renderPoolsBreakdown(activeData) {
+      const pools = activeData.pools || [];
+      const container = document.getElementById('pools-list');
+      document.getElementById('pools-count-badge').textContent = `${pools.length} Pools`;
+
+      if (pools.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 sm:p-6 text-center text-slate-500 font-sans text-xs bg-bg-main/50 rounded-xl border border-border-main">
+            Belum ada pool yang diperdagangkan pada mode ${currentTradingMode === 'paper' ? 'Paper' : 'Real'}.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = pools.map(p => {
+        const pnlColor = p.totalPnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        return `
+          <div onclick="filterByPoolCard('${p.name}')" class="bg-bg-main/80 hover:bg-bg-hover p-2.5 sm:p-3.5 rounded-xl border border-border-main transition cursor-pointer space-y-1.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-white text-xs font-mono">${p.name}</span>
+                <span class="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-bg-card border border-border-main text-slate-400 font-mono">${p.totalTrades} trades</span>
+              </div>
+              <div class="text-right">
+                <span class="font-bold text-xs font-mono ${pnlColor}">
+                  ${p.totalPnlUsd >= 0 ? '+' : ''}$${p.totalPnlUsd.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1 text-[10px] sm:text-[11px] font-mono text-slate-400 border-t border-border-main/60 pt-1.5">
+              <div>Win: <strong class="text-white">${p.winRatePct}%</strong></div>
+              <div>Fees: <strong class="text-amber-400">+$${p.totalFeesUsd.toFixed(2)}</strong></div>
+              <div>Hold: <strong class="text-slate-300">${p.avgDurationHours}h</strong></div>
+            </div>
+
+            <div class="w-full bg-bg-card h-1 rounded-full overflow-hidden">
+              <div class="bg-gradient-to-r from-cyan-500 to-brand-sol h-full" style="width: ${Math.min(100, Math.max(10, p.winRatePct))}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function filterByPoolCard(poolName) {
+      document.getElementById('filter-pool').value = poolName;
+      applyTradeFilters();
+    }
+
+    function renderCharts(activeData) {
+      const growthSeries = activeData.equityGrowthSeries || [];
+      const dailyMap = activeData.dailyPnl || {};
+      const kpis = activeData.kpis || {};
+
+      document.getElementById('chart-equity-tag').textContent = `$${(kpis.totalEquityUsd || 0).toFixed(2)}`;
+      document.getElementById('chart-equity-sub').textContent = currentTradingMode === 'paper' 
+        ? 'Pertumbuhan modal dari $60.00 base capital'
+        : 'Performa real on-chain trading';
+
+      const equityCtx = document.getElementById('equityChart').getContext('2d');
+      if (equityChartInstance) equityChartInstance.destroy();
+
+      const labels = growthSeries.length > 0 ? growthSeries.map(s => s.tradeId.replace('trade_', '#')) : ['Start'];
+      const dataPoints = growthSeries.length > 0 ? growthSeries.map(s => s.equity) : [kpis.baseCapitalUsd || 0];
+
+      equityChartInstance = new Chart(equityCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Equity ($)',
+            data: dataPoints,
+            borderColor: currentTradingMode === 'paper' ? '#10B981' : '#06B6D4',
+            backgroundColor: currentTradingMode === 'paper' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(6, 182, 212, 0.08)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointBackgroundColor: currentTradingMode === 'paper' ? '#10B981' : '#06B6D4',
+            pointBorderColor: '#080B10',
+            pointRadius: 2.5,
+            pointHoverRadius: 5,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `Equity: $${ctx.parsed.y.toFixed(2)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255,255,255,0.03)' },
+              ticks: { color: '#64748B', font: { family: 'Geist Mono', size: 9 }, maxTicksLimit: 8 }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: {
+                color: '#64748B',
+                font: { family: 'Geist Mono', size: 9 },
+                callback: (val) => `$${val}`
+              }
+            }
+          }
+        }
+      });
+
+      const dailyCtx = document.getElementById('dailyPnlChart').getContext('2d');
+      if (dailyPnlChartInstance) dailyPnlChartInstance.destroy();
+
+      const sortedDates = Object.keys(dailyMap).sort().slice(-14);
+      const barLabels = sortedDates.length > 0 ? sortedDates.map(d => d.slice(5)) : ['No Data'];
+      const barValues = sortedDates.length > 0 ? sortedDates.map(d => dailyMap[d].pnlUsd) : [0];
+      const barColors = barValues.map(v => v >= 0 ? '#10B981' : '#F43F5E');
+
+      dailyPnlChartInstance = new Chart(dailyCtx, {
+        type: 'bar',
+        data: {
+          labels: barLabels,
+          datasets: [{
+            data: barValues,
+            backgroundColor: barColors,
+            borderRadius: 3,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `PnL: $${ctx.parsed.y.toFixed(2)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#64748B', font: { family: 'Geist Mono', size: 9 }, maxTicksLimit: 7 }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: {
+                color: '#64748B',
+                font: { family: 'Geist Mono', size: 9 },
+                callback: (val) => `$${val}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTradesTable(activeData) {
+      const allTrades = activeData.trades || [];
+      const isPaper = currentTradingMode === 'paper';
+      
+      document.getElementById('table-title').textContent = isPaper ? 'Riwayat Seluruh Trade (Paper)' : 'Riwayat Trade (Real On-Chain)';
+
+      const poolFilterEl = document.getElementById('filter-pool');
+      const uniquePools = Array.from(new Set(allTrades.map(t => t.poolName))).filter(Boolean);
+      poolFilterEl.innerHTML = `<option value="ALL">Semua Pool</option>` + uniquePools.map(p => `<option value="${p}">${p}</option>`).join('');
+
+      const poolFilter = poolFilterEl.value;
+      const statusFilter = document.getElementById('filter-status').value;
+      const searchFilter = document.getElementById('filter-search').value.toLowerCase().trim();
+
+      const filtered = allTrades.filter(t => {
+        if (poolFilter !== 'ALL' && t.poolName !== poolFilter) return false;
+        if (statusFilter === 'OPEN' && !t.status.includes('OPEN')) return false;
+        if (statusFilter === 'CLOSED' && !t.status.includes('CLOSED')) return false;
+        if (statusFilter === 'WIN' && t.pnlUsd < 0) return false;
+        if (statusFilter === 'LOSS' && t.pnlUsd >= 0) return false;
+
+        if (selectedDateFilter) {
+          const tradeDate = t.tradeDateInfo?.wibDate || t.entryDateInfo?.wibDate;
+          if (tradeDate !== selectedDateFilter) return false;
+        }
+
+        if (searchFilter) {
+          const matchPool = t.poolName.toLowerCase().includes(searchFilter);
+          const matchReason = (t.exitReason || '').toLowerCase().includes(searchFilter);
+          const matchId = t.id.toLowerCase().includes(searchFilter);
+          if (!matchPool && !matchReason && !matchId) return false;
+        }
+
+        return true;
+      });
+
+      document.getElementById('table-trades-count').textContent = `${filtered.length} Trades`;
+      document.getElementById('table-showing-info').textContent = `Menampilkan ${filtered.length} dari ${allTrades.length} trade${selectedDateFilter ? ` (Filter: ${selectedDateFilter})` : ''}`;
+
+      const tbody = document.getElementById('trades-table-body');
+      if (filtered.length === 0) {
+        const emptyMsg = isPaper
+          ? 'Tidak ada transaksi simulasi yang cocok dengan filter yang dipilih.'
+          : 'Belum ada transaksi real on-chain di wallet ini. Seluruh 39 transaksi tercatat di Paper Trading.';
+
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="11" class="py-6 text-center text-slate-500 font-sans text-xs">
+              ${emptyMsg}
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(t => {
+        const isClosed = t.status.includes('CLOSED');
+        const isWin = t.pnlUsd >= 0;
+        const pnlColor = isWin ? 'text-emerald-400' : 'text-rose-400';
+        const dateStr = currentTimezone === 'WIB' 
+          ? (t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString || '-')
+          : (t.tradeDateInfo?.iso?.slice(0, 16).replace('T', ' ') || '-');
+
+        return `
+          <tr onclick="openTradeModal('${t.id}')" class="hover:bg-bg-hover/80 transition cursor-pointer group">
+            <td class="py-2.5 px-3 font-semibold text-slate-400 group-hover:text-white">${t.id}</td>
+            <td class="py-2.5 px-3 text-slate-300 whitespace-nowrap">${dateStr}</td>
+            <td class="py-2.5 px-3 font-bold text-white">${t.poolName}</td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isClosed ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">
+                ${t.status.replace('_PAPER', '').replace('_REAL', '')}
+              </span>
+            </td>
+            <td class="py-2.5 px-3 text-right text-slate-200">$${t.capitalUsd.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-right font-bold ${pnlColor}">${isWin ? '+' : ''}$${t.pnlUsd.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-right font-semibold ${pnlColor}">${isWin ? '+' : ''}${t.pnlPct.toFixed(2)}%</td>
+            <td class="py-2.5 px-3 text-right text-slate-400">${t.holdingHours > 0 ? t.holdingHours + 'h' : '-'}</td>
+            <td class="py-2.5 px-3 text-slate-400 text-[10px]">${t.bins.lowerBin}..${t.bins.upperBin}</td>
+            <td class="py-2.5 px-3 text-slate-400 truncate max-w-xs" title="${t.exitReason}">${t.exitReason}</td>
+            <td class="py-2.5 px-3 text-center">
+              <button class="px-2 py-1 rounded bg-bg-card group-hover:bg-brand-purple/20 text-slate-400 group-hover:text-purple-300 transition text-[10px]">
+                Detail
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function applyTradeFilters() {
+      renderTradesTable(getActiveDataset());
+    }
+
+    function openTradeModal(tradeId) {
+      const activeData = getActiveDataset();
+      const trade = activeData.trades?.find(t => t.id === tradeId);
+      if (!trade) return;
+
+      document.getElementById('modal-trade-title').textContent = `${trade.poolName} Position (${currentTradingMode.toUpperCase()})`;
+      document.getElementById('modal-trade-subtitle').textContent = `ID: ${trade.id} • Pool: ${trade.poolAddress || 'Meteora DLMM'}`;
+      
+      const badge = document.getElementById('modal-trade-status-badge');
+      badge.textContent = trade.status;
+      badge.className = `text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-medium ${trade.status.includes('OPEN') ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 border border-slate-700'}`;
+
+      const pnlEl = document.getElementById('modal-pnl-usd');
+      pnlEl.textContent = `${trade.pnlUsd >= 0 ? '+' : ''}$${trade.pnlUsd.toFixed(2)}`;
+      pnlEl.className = `text-sm sm:text-base font-bold ${trade.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      document.getElementById('modal-pnl-pct').textContent = `(${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%)`;
+      document.getElementById('modal-capital').textContent = `$${trade.capitalUsd.toFixed(2)}`;
+      document.getElementById('modal-fee').textContent = `+$${trade.feeUsd.toFixed(2)}`;
+      document.getElementById('modal-duration').textContent = `${trade.holdingHours} Jam`;
+
+      document.getElementById('modal-bin-lower').textContent = trade.bins.lowerBin;
+      document.getElementById('modal-bin-entry').textContent = trade.bins.entryActiveBin;
+      document.getElementById('modal-bin-upper').textContent = trade.bins.upperBin;
+      document.getElementById('modal-bin-close').textContent = `Exit Bin: ${trade.bins.closeActiveBin ?? '-'}`;
+      document.getElementById('modal-bin-step').textContent = `Bin Step: ${trade.bins.binStepBps || 20} bps`;
+
+      document.getElementById('modal-base-dlmm').textContent = `${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%`;
+      document.getElementById('modal-base-5050').textContent = `${trade.baselines.baseline5050Pct >= 0 ? '+' : ''}${trade.baselines.baseline5050Pct.toFixed(2)}%`;
+      document.getElementById('modal-base-volatile').textContent = `${trade.baselines.baselineVolatilePct >= 0 ? '+' : ''}${trade.baselines.baselineVolatilePct.toFixed(2)}%`;
+
+      document.getElementById('modal-exit-reason').textContent = trade.exitReason || 'No details';
+
+      const checks = trade.monitorChecks || [];
+      const tbody = document.getElementById('modal-checks-tbody');
+      let liveRowHtml = '';
+
+      if (trade.isLiveRealtime && trade.liveQuote) {
+        const lq = trade.liveQuote;
+        const livePnlColor = trade.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        liveRowHtml = `
+          <tr class="bg-emerald-500/10 border-b border-emerald-500/30">
+            <td class="p-2 text-emerald-300 font-semibold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              LIVE NOW (On-Chain)
+            </td>
+            <td class="p-2 font-bold text-brand-sol">${lq.activeBin ?? '-'}</td>
+            <td class="p-2 text-white font-semibold">${lq.price ? '$' + Number(lq.price).toFixed(4) : '-'}</td>
+            <td class="p-2 text-right text-amber-400 font-semibold">${lq.feeActiveTvlRatioPct ? lq.feeActiveTvlRatioPct.toFixed(3) + '%' : '-'}</td>
+            <td class="p-2 text-right font-bold ${livePnlColor}">${trade.pnlUsd >= 0 ? '+' : ''}$${trade.pnlUsd.toFixed(2)} (${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%)</td>
+            <td class="p-2 text-emerald-300 truncate max-w-xs font-semibold">⚡ Quote Real-Time Pool DLMM</td>
+          </tr>
+        `;
+      }
+
+      document.getElementById('modal-checks-count').textContent = checks.length + (trade.isLiveRealtime ? ' (Live + ' + checks.length + ' Cron Logs)' : '');
+
+      if (checks.length === 0 && !liveRowHtml) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-500">Tidak ada data monitor checks berkala tercatat.</td></tr>`;
+      } else {
+        const checksHtml = checks.map((c, i) => `
+          <tr class="hover:bg-bg-hover/60">
+            <td class="p-2 text-slate-300">${c.checkedAtWib || c.checkedAtUtc || '-'}</td>
+            <td class="p-2 font-bold text-white">${c.activeBin ?? '-'}</td>
+            <td class="p-2 text-slate-300">${c.poolPrice ? Number(c.poolPrice).toFixed(4) : '-'}</td>
+            <td class="p-2 text-right text-amber-400">${c.feeActiveTvlRatioPct ? c.feeActiveTvlRatioPct.toFixed(3) + '%' : '-'}</td>
+            <td class="p-2 text-right font-bold ${c.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${c.pnlUsd != null ? (c.pnlUsd >= 0 ? '+' : '') + '$' + Number(c.pnlUsd).toFixed(2) : '-'}</td>
+            <td class="p-2 text-slate-400 truncate max-w-xs" title="${c.evalReason}">${c.evalReason || (c.inRange ? 'IN_RANGE' : 'OUT_OF_RANGE')}</td>
+          </tr>
+        `).join('');
+
+        tbody.innerHTML = liveRowHtml + checksHtml;
+      }
+
+      document.getElementById('trade-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeTradeModal() {
+      document.getElementById('trade-modal').classList.add('hidden');
+    }
+
+    function setTradingMode(mode) {
+      currentTradingMode = mode;
+      selectedDateFilter = null;
+      selectedMonth = null;
+
+      const btnPaper = document.getElementById('btn-mode-paper');
+      const btnReal = document.getElementById('btn-mode-real');
+      const qPaper = document.getElementById('mobile-quick-paper');
+      const qReal = document.getElementById('mobile-quick-real');
+      const dPaper = document.getElementById('drawer-btn-paper');
+      const dReal = document.getElementById('drawer-btn-real');
+      const realCard = document.getElementById('real-trading-info-card');
+
+      if (mode === 'paper') {
+        if (btnPaper) btnPaper.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm';
+        if (btnReal) btnReal.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200';
+        
+        if (qPaper) qPaper.className = 'px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-500/20 text-emerald-300';
+        if (qReal) qReal.className = 'px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400';
+
+        if (dPaper) dPaper.className = 'p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2';
+        if (dReal) dReal.className = 'p-2.5 rounded-xl border border-border-main bg-bg-main text-slate-400 text-xs font-semibold flex items-center justify-center gap-2';
+
+        if (realCard) realCard.classList.add('hidden');
+      } else {
+        if (btnReal) btnReal.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm';
+        if (btnPaper) btnPaper.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200';
+
+        if (qReal) qReal.className = 'px-2 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/20 text-cyan-300';
+        if (qPaper) qPaper.className = 'px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400';
+
+        if (dReal) dReal.className = 'p-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 text-xs font-semibold flex items-center justify-center gap-2';
+        if (dPaper) dPaper.className = 'p-2.5 rounded-xl border border-border-main bg-bg-main text-slate-400 text-xs font-semibold flex items-center justify-center gap-2';
+
+        if (realCard) realCard.classList.remove('hidden');
+      }
+
+      renderAll();
+    }
+
+    function toggleTimezone() {
+      currentTimezone = currentTimezone === 'WIB' ? 'UTC' : 'WIB';
+      const labelText = `${currentTimezone} (${currentTimezone === 'WIB' ? 'UTC+7' : 'UTC+0'})`;
+      const tzDesktop = document.getElementById('tz-label');
+      const tzDrawer = document.getElementById('drawer-tz-label');
+      if (tzDesktop) tzDesktop.textContent = labelText;
+      if (tzDrawer) tzDrawer.textContent = labelText;
+      renderTradesTable(getActiveDataset());
+    }
+
+    function formatDateTimeShort(isoString) {
+      if (!isoString) return '-';
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+      return wib.toISOString().slice(11, 16) + ' WIB';
+    }
+
+    function toggleExportMenu() {
+      const menu = document.getElementById('export-menu');
+      if (menu) menu.classList.toggle('hidden');
+    }
+
+    window.addEventListener('click', (e) => {
+      if (!e.target.closest('#export-menu') && !e.target.closest('button[onclick="toggleExportMenu()"]')) {
+        const menu = document.getElementById('export-menu');
+        if (menu) menu.classList.add('hidden');
+      }
+    });
+
+    function showToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-6 right-6 z-50 bg-bg-card border border-emerald-500/50 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold animate-in slide-in-from-bottom duration-200';
+      toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i> <span>${msg}</span>`;
+      document.body.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    setInterval(() => {
+      fetchDashboardData(false);
+    }, 60000);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchDashboardData(false);
+    });
+  </script>
+</body>
+</html>

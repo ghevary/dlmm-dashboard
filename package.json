@@ -1,0 +1,11 @@
+﻿{
+  "name": "meridian-dlmm-dashboard",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "PnL & Analytics Dashboard for Meteora DLMM Meridian Trading Bot",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}
