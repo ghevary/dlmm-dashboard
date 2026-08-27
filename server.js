@@ -157,7 +157,6 @@ async function processPositionsData(rawPositions, isPaper = true) {
         totalLossUsd += Math.abs(pnlUsd);
       }
     } else if (isOpen) {
-      // For open positions, fetch live on-chain/pool metrics!
       const poolAddr = pos.pool_address || pos.pool;
       if (poolAddr) {
         liveQuote = await fetchLivePoolQuote(poolAddr);
@@ -171,12 +170,10 @@ async function processPositionsData(rawPositions, isPaper = true) {
         const currentPrice = liveQuote.price;
         const priceChangePct = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0.0;
         
-        // Estimate rough fee accumulation based on live fee/activeTVL ratio
         const feeRatio24h = liveQuote.feeActiveTvlRatioPct ? liveQuote.feeActiveTvlRatioPct / 100 : 0.005;
         const estFees = capital * feeRatio24h * (holdingHours / 24);
         feeUsd = Number(estFees.toFixed(4));
 
-        // Estimate DLMM return with 50/50 initial split + fee yield
         const inventoryPnlUsd = (capital * (priceChangePct / 100 * 0.5));
         pnlUsd = Number((inventoryPnlUsd + feeUsd).toFixed(4));
         pnlPct = Number(((pnlUsd / capital) * 100).toFixed(2));
@@ -186,7 +183,7 @@ async function processPositionsData(rawPositions, isPaper = true) {
           : true;
 
         exitReason = inRangeNow 
-          ? `LIVE_ACTIVE: Bin ${liveQuote.activeBin} in-range. PnL: ${pnlPct >= 0 ? '+' : ''}${pnlPct}% (Quote live dari on-chain DLMM)`
+          ? `LIVE_ACTIVE: Bin ${liveQuote.activeBin} in-range. PnL: ${pnlPct >= 0 ? '+' : ''}${pnlPct}% (Quote live on-chain)`
           : `LIVE_WARNING: Bin ${liveQuote.activeBin} out-of-range (${pos.lower_bin}..${pos.upper_bin})`;
       } else if (lastCheck) {
         const est = lastCheck.estimated || {};
@@ -462,6 +459,64 @@ async function processPositionsData(rawPositions, isPaper = true) {
   };
 }
 
+function generateCsvFromTrades(trades) {
+  const headers = [
+    'Trade ID',
+    'Date (WIB)',
+    'Date (UTC)',
+    'Pool Name',
+    'Pool Address',
+    'Status',
+    'Capital (USD)',
+    'Net PnL (USD)',
+    'PnL (%)',
+    'Fees (USD)',
+    'Holding Hours',
+    'Entry Price',
+    'Exit/Current Price',
+    'Lower Bin',
+    'Entry Bin',
+    'Upper Bin',
+    'Exit/Current Bin',
+    'Bin Step (bps)',
+    'Baseline 50/50 (%)',
+    'Baseline Volatile (%)',
+    'Exit Reason / Status'
+  ];
+
+  const escapeCsv = (val) => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const rows = trades.map(t => [
+    escapeCsv(t.id),
+    escapeCsv(t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString || ''),
+    escapeCsv(t.tradeDateInfo?.iso || t.entryDateInfo?.iso || ''),
+    escapeCsv(t.poolName),
+    escapeCsv(t.poolAddress),
+    escapeCsv(t.status),
+    escapeCsv(t.capitalUsd),
+    escapeCsv(t.pnlUsd),
+    escapeCsv(t.pnlPct),
+    escapeCsv(t.feeUsd),
+    escapeCsv(t.holdingHours),
+    escapeCsv(t.entryPrice ?? ''),
+    escapeCsv(t.currentPrice ?? ''),
+    escapeCsv(t.bins?.lowerBin ?? ''),
+    escapeCsv(t.bins?.entryActiveBin ?? ''),
+    escapeCsv(t.bins?.upperBin ?? ''),
+    escapeCsv(t.bins?.closeActiveBin ?? ''),
+    escapeCsv(t.bins?.binStepBps ?? ''),
+    escapeCsv(t.baselines?.baseline5050Pct ?? ''),
+    escapeCsv(t.baselines?.baselineVolatilePct ?? ''),
+    escapeCsv(t.exitReason ?? '')
+  ].join(','));
+
+  return '\uFEFF' + [headers.map(escapeCsv).join(','), ...rows].join('\r\n');
+}
+
 async function getRealTradingPayload() {
   const stateData = readJsonSafe(REAL_STATE_PATH, { positions: {}, recentEvents: [] });
   
@@ -549,6 +604,37 @@ const server = http.createServer(async (req, res) => {
       const data = await getFullDashboardData();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(data));
+      return;
+    }
+
+    if (pathname === '/api/export/csv') {
+      const mode = parsedUrl.searchParams.get('mode') || 'paper';
+      const data = await getFullDashboardData();
+      const dataset = mode === 'real' ? data.real : data.paper;
+      const csvContent = generateCsvFromTrades(dataset.trades || []);
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `meridian-trades-${mode}-${today}.csv`;
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-cache',
+      });
+      res.end(csvContent);
+      return;
+    }
+
+    if (pathname === '/api/export/json') {
+      const mode = parsedUrl.searchParams.get('mode') || 'paper';
+      const data = await getFullDashboardData();
+      const dataset = mode === 'real' ? data.real : data.paper;
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `meridian-trades-${mode}-${today}.json`;
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify(dataset, null, 2));
       return;
     }
 

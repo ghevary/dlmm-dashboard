@@ -120,12 +120,12 @@
             <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
           </button>
           <div id="export-menu" class="hidden absolute right-0 mt-2 w-40 rounded-xl bg-bg-card border border-border-main shadow-2xl z-50 p-1">
-            <a href="/api/export/csv" class="flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-slate-300 hover:bg-bg-hover hover:text-white">
+            <button onclick="downloadExport('csv')" class="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-slate-300 hover:bg-bg-hover hover:text-white text-left">
               <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Export CSV
-            </a>
-            <a href="/api/export/json" class="flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-slate-300 hover:bg-bg-hover hover:text-white">
+            </button>
+            <button onclick="downloadExport('json')" class="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-slate-300 hover:bg-bg-hover hover:text-white text-left">
               <i data-lucide="file-json" class="w-4 h-4 text-brand-purple"></i> Export JSON
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -177,12 +177,12 @@
       <div class="space-y-1.5 pt-2 border-t border-border-main">
         <span class="text-[10px] text-slate-500 uppercase font-mono tracking-wider">Ekspor Data</span>
         <div class="grid grid-cols-2 gap-2">
-          <a href="/api/export/csv" class="p-2 rounded-xl bg-bg-main border border-border-main text-xs text-slate-300 flex items-center justify-center gap-2">
+          <button onclick="downloadExport('csv'); toggleMobileMenu();" class="p-2 rounded-xl bg-bg-main border border-border-main text-xs text-slate-300 flex items-center justify-center gap-2">
             <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> CSV
-          </a>
-          <a href="/api/export/json" class="p-2 rounded-xl bg-bg-main border border-border-main text-xs text-slate-300 flex items-center justify-center gap-2">
+          </button>
+          <button onclick="downloadExport('json'); toggleMobileMenu();" class="p-2 rounded-xl bg-bg-main border border-border-main text-xs text-slate-300 flex items-center justify-center gap-2">
             <i data-lucide="file-json" class="w-4 h-4 text-brand-purple"></i> JSON
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -1445,6 +1445,96 @@
       if (isNaN(d.getTime())) return isoString;
       const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
       return wib.toISOString().slice(11, 16) + ' WIB';
+    }
+
+        function downloadExport(type) {
+      const activeData = getActiveDataset();
+      const allTrades = activeData.trades || [];
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `meridian-dlmm-${currentTradingMode}-trades-${today}.${type}`;
+
+      if (type === 'csv') {
+        const headers = [
+          'Trade ID',
+          'Date (WIB)',
+          'Date (UTC)',
+          'Pool Name',
+          'Pool Address',
+          'Status',
+          'Capital (USD)',
+          'Net PnL (USD)',
+          'PnL (%)',
+          'Fees (USD)',
+          'Holding Hours',
+          'Entry Price',
+          'Exit/Current Price',
+          'Lower Bin',
+          'Entry Bin',
+          'Upper Bin',
+          'Exit/Current Bin',
+          'Bin Step (bps)',
+          'Baseline 50/50 (%)',
+          'Baseline Volatile (%)',
+          'Exit Reason / Status'
+        ];
+
+        const escapeCsv = (val) => {
+          if (val === null || val === undefined) return '""';
+          const str = String(val).replace(/"/g, '""');
+          return `"${str}"`;
+        };
+
+        const rows = allTrades.map(t => [
+          escapeCsv(t.id),
+          escapeCsv(t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString || ''),
+          escapeCsv(t.tradeDateInfo?.iso || t.entryDateInfo?.iso || ''),
+          escapeCsv(t.poolName),
+          escapeCsv(t.poolAddress),
+          escapeCsv(t.status),
+          escapeCsv(t.capitalUsd),
+          escapeCsv(t.pnlUsd),
+          escapeCsv(t.pnlPct),
+          escapeCsv(t.feeUsd),
+          escapeCsv(t.holdingHours),
+          escapeCsv(t.entryPrice ?? ''),
+          escapeCsv(t.currentPrice ?? ''),
+          escapeCsv(t.bins?.lowerBin ?? ''),
+          escapeCsv(t.bins?.entryActiveBin ?? ''),
+          escapeCsv(t.bins?.upperBin ?? ''),
+          escapeCsv(t.bins?.closeActiveBin ?? ''),
+          escapeCsv(t.bins?.binStepBps ?? ''),
+          escapeCsv(t.baselines?.baseline5050Pct ?? ''),
+          escapeCsv(t.baselines?.baselineVolatilePct ?? ''),
+          escapeCsv(t.exitReason ?? '')
+        ].join(','));
+
+        const csvString = '\uFEFF' + [headers.map(escapeCsv).join(','), ...rows].join('\r\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast(`✅ Berhasil mendownload ${allTrades.length} trade ke ${filename}!`);
+      } else if (type === 'json') {
+        const jsonString = JSON.stringify(activeData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast(`✅ Berhasil mendownload ${allTrades.length} trade ke ${filename}!`);
+      }
+
+      const menu = document.getElementById('export-menu');
+      if (menu) menu.classList.add('hidden');
     }
 
     function toggleExportMenu() {
