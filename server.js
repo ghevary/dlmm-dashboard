@@ -1,4 +1,4 @@
-﻿import http from 'http';
+import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,8 +10,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3888;
-const PAPER_POSITIONS_PATH = process.env.PAPER_PATH || '/root/.hermes/profiles/ghepappo/home/.meridian/paper_positions.json';
-const REAL_STATE_PATH = process.env.REAL_STATE_PATH || '/root/projects/meridian/state.json';
+const METEORA_PAPER_PATH = process.env.PAPER_PATH || '/root/.hermes/profiles/ghepappo/home/.meridian/paper_positions.json';
+const METEORA_REAL_PATH = process.env.REAL_STATE_PATH || '/root/projects/meridian/state.json';
+const ROBINHOOD_PAPER_PATH = process.env.ROBINHOOD_PAPER_PATH || '/root/.hermes/profiles/ghepappo/home/.meridian/robinhood_paper_positions.json';
+const ROBINHOOD_POLICY_PATH = process.env.ROBINHOOD_POLICY_PATH || '/root/.hermes/profiles/ghepappo/home/.meridian/robinhood_strategy_policy.json';
+const ROBINHOOD_REAL_PATH = process.env.ROBINHOOD_REAL_PATH || '/root/projects/meridian/robinhood-state.json';
 const CRON_JOBS_PATH = process.env.CRON_PATH || '/root/.hermes/profiles/ghepappo/cron/jobs.json';
 const MERIDIAN_PROJECT_DIR = process.env.MERIDIAN_DIR || '/root/projects/meridian';
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -44,20 +47,25 @@ function readJsonSafe(filePath, fallback = null) {
   return fallback;
 }
 
-// Live pool cache to avoid spamming CLI if requested in quick succession
+// In-memory quote caches (TTL 30 seconds)
 const poolQuoteCache = new Map();
+const robinhoodQuoteCache = new Map();
+const CACHE_TTL_MS = 30000;
+
+// Meteora live pool quoting via CLI
 async function fetchLivePoolQuote(poolAddress) {
   if (!poolAddress) return null;
+
   const now = Date.now();
   const cached = poolQuoteCache.get(poolAddress);
-  if (cached && (now - cached.timestamp < 15000)) {
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
   }
 
   try {
     const cmdActiveBin = `node ${path.join(MERIDIAN_PROJECT_DIR, 'cli.js')} active-bin --pool ${poolAddress} 2>/dev/null`;
-    const cmdPoolDetail = `node ${path.join(MERIDIAN_PROJECT_DIR, 'cli.js')} pool-detail --pool ${poolAddress} --timeframe 5m 2>/dev/null`;
-    
+    const cmdPoolDetail = `node ${path.join(MERIDIAN_PROJECT_DIR, 'cli.js')} pool-detail --pool ${poolAddress} 2>/dev/null`;
+
     const [binRes, detailRes] = await Promise.allSettled([
       execPromise(cmdActiveBin),
       execPromise(cmdPoolDetail)
@@ -93,8 +101,75 @@ async function fetchLivePoolQuote(poolAddress) {
   }
 }
 
-// Process Positions Data Generic with Live Quote Integration
-async function processPositionsData(rawPositions, isPaper = true) {
+// Robinhood live pool quoting via DEXScreener API
+async function fetchLiveRobinhoodQuote(pairAddress) {
+  if (!pairAddress) return null;
+  const cleanAddr = String(pairAddress).trim();
+  const now = Date.now();
+  const cached = robinhoodQuoteCache.get(cleanAddr.toLowerCase());
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  try {
+    const url = `https://api.dexscreener.com/latest/dex/pairs/robinhood/${cleanAddr}`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Meridian-Robinhood-Dashboard/2.0' } });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const pairs = json.pairs || [];
+    const pair = pairs.find(p => p.chainId === 'robinhood' && p.pairAddress.toLowerCase() === cleanAddr.toLowerCase()) || pairs[0] || null;
+    if (!pair) return null;
+
+    const priceUsd = Number(pair.priceUsd) || 0;
+    const vol24h = Number(pair.volume?.h24) || 0;
+    const liqUsd = Number(pair.liquidity?.usd) || 0;
+    const est24hFees = vol24h * 0.003;
+    const feeLiqRatio = liqUsd > 0 ? (est24hFees / liqUsd) * 100 : 0;
+
+    const quote = {
+      price: priceUsd,
+      volume24hUsd: vol24h,
+      tvlUsd: liqUsd,
+      activeTvlUsd: liqUsd,
+      fee24hUsd: est24hFees,
+      feeActiveTvlRatioPct: feeLiqRatio,
+      baseSymbol: pair.baseToken?.symbol || 'BASE',
+      quoteSymbol: pair.quoteToken?.symbol || 'QUOTE',
+      timestamp: now,
+      fetchedAtIso: new Date().toISOString(),
+    };
+
+    robinhoodQuoteCache.set(cleanAddr.toLowerCase(), { timestamp: now, data: quote });
+    return quote;
+  } catch (err) {
+    console.error(`Error fetching live Robinhood quote for ${pairAddress}:`, err.message);
+    return null;
+  }
+}
+
+// Continuous CLMM valuation function (Uniswap v3 mark-to-market)
+function computeRobinhoodClmmValue(entryPrice, currentPrice, lowerPrice, upperPrice, capital) {
+  if (entryPrice <= 0 || currentPrice <= 0 || lowerPrice <= 0 || upperPrice <= lowerPrice) {
+    return capital;
+  }
+  const sqrtP = Math.sqrt(currentPrice);
+  const sqrtPa = Math.sqrt(lowerPrice);
+  const sqrtPb = Math.sqrt(upperPrice);
+  const sqrtP0 = Math.sqrt(entryPrice);
+  const denom = (2 * sqrtP0 - sqrtPa - (entryPrice / sqrtPb));
+  if (denom <= 0) return capital * (currentPrice / entryPrice);
+  const L = capital / denom;
+  if (currentPrice < lowerPrice) {
+    return L * ((1 / sqrtPa) - (1 / sqrtPb)) * currentPrice;
+  } else if (currentPrice > upperPrice) {
+    return L * (sqrtPb - sqrtPa);
+  } else {
+    return (L * ((1 / sqrtP) - (1 / sqrtPb)) * currentPrice) + (L * (sqrtP - sqrtPa));
+  }
+}
+
+// Process Meteora DLMM Positions Data
+async function processMeteoraPositionsData(rawPositions, isPaper = true) {
   let list = [];
   if (Array.isArray(rawPositions)) {
     list = rawPositions;
@@ -115,7 +190,6 @@ async function processPositionsData(rawPositions, isPaper = true) {
   const poolStats = {};
   const dailyPnlMap = {};
   const monthlyStatsMap = {};
-
   const enrichedTrades = [];
 
   for (let index = 0; index < list.length; index++) {
@@ -169,11 +243,9 @@ async function processPositionsData(rawPositions, isPaper = true) {
       if (liveQuote && liveQuote.price) {
         const currentPrice = liveQuote.price;
         const priceChangePct = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0.0;
-        
         const feeRatio24h = liveQuote.feeActiveTvlRatioPct ? liveQuote.feeActiveTvlRatioPct / 100 : 0.005;
         const estFees = capital * feeRatio24h * (holdingHours / 24);
         feeUsd = Number(estFees.toFixed(4));
-
         const inventoryPnlUsd = (capital * (priceChangePct / 100 * 0.5));
         pnlUsd = Number((inventoryPnlUsd + feeUsd).toFixed(4));
         pnlPct = Number(((pnlUsd / capital) * 100).toFixed(2));
@@ -183,7 +255,7 @@ async function processPositionsData(rawPositions, isPaper = true) {
           : true;
 
         exitReason = inRangeNow 
-          ? `LIVE_ACTIVE: Bin ${liveQuote.activeBin} in-range. PnL: ${pnlPct >= 0 ? '+' : ''}${pnlPct}% (Quote live on-chain)`
+          ? `LIVE_ACTIVE: Bin ${liveQuote.activeBin} in-range. PnL: ${pnlPct >= 0 ? '+' : ''}${pnlPct}% (Solana DLMM on-chain)`
           : `LIVE_WARNING: Bin ${liveQuote.activeBin} out-of-range (${pos.lower_bin}..${pos.upper_bin})`;
       } else if (lastCheck) {
         const est = lastCheck.estimated || {};
@@ -302,6 +374,10 @@ async function processPositionsData(rawPositions, isPaper = true) {
     const enrichedTrade = {
       id: `trade_${index + 1}`,
       rawIndex: index,
+      engine: 'meteora',
+      engineLabel: 'Meteora DLMM',
+      chain: 'Solana',
+      dex: 'Meteora DLMM',
       status,
       isPaper,
       poolName,
@@ -357,7 +433,6 @@ async function processPositionsData(rawPositions, isPaper = true) {
     if (tradeDateInfo && dailyPnlMap[tradeDateInfo.wibDate]) {
       dailyPnlMap[tradeDateInfo.wibDate].trades.push(enrichedTrade);
     }
-
     enrichedTrades.push(enrichedTrade);
   }
 
@@ -370,18 +445,10 @@ async function processPositionsData(rawPositions, isPaper = true) {
       m.winCount += day.winCount;
       m.lossCount += day.lossCount;
       m.activeDaysCount++;
-
       if (day.pnlUsd > 0) m.greenDaysCount++;
       else if (day.pnlUsd < 0) m.redDaysCount++;
-
-      if (day.pnlUsd > m.bestDayPnl) {
-        m.bestDayPnl = day.pnlUsd;
-        m.bestDayDate = day.date;
-      }
-      if (day.pnlUsd < m.worstDayPnl) {
-        m.worstDayPnl = day.pnlUsd;
-        m.worstDayDate = day.date;
-      }
+      if (day.pnlUsd > m.bestDayPnl) { m.bestDayPnl = day.pnlUsd; m.bestDayDate = day.date; }
+      if (day.pnlUsd < m.worstDayPnl) { m.worstDayPnl = day.pnlUsd; m.worstDayDate = day.date; }
     }
   });
 
@@ -459,13 +526,590 @@ async function processPositionsData(rawPositions, isPaper = true) {
   };
 }
 
-function generateCsvFromTrades(trades) {
+// Process Robinhood Chain CLMM Positions Data
+async function processRobinhoodPositionsData(rawRobinhood, isPaper = true) {
+  const data = rawRobinhood || { positions: [], closed_positions: [], cumulative_pnl_usd: 0 };
+  const openList = Array.isArray(data.positions) ? data.positions : [];
+  const closedList = Array.isArray(data.closed_positions) ? data.closed_positions : [];
+
+  const baseCapital = isPaper ? 60.0 : 0.0;
+  let realizedPnl = Number(data.cumulative_pnl_usd) || 0.0;
+  let openPnl = 0.0;
+  let totalVolume = 0.0;
+  let totalFees = 0.0;
+  let winCount = 0;
+  let lossCount = 0;
+  let totalGainUsd = 0.0;
+  let totalLossUsd = 0.0;
+
+  const poolStats = {};
+  const dailyPnlMap = {};
+  const monthlyStatsMap = {};
+  const enrichedTrades = [];
+
+  // 1. Process Closed Positions
+  for (let i = 0; i < closedList.length; i++) {
+    const pos = closedList[i];
+    const capital = Number(pos.capitalUsd || 60.0);
+    const entryPrice = Number(pos.entryPriceUsd || 0);
+    const pnlUsd = Number(pos.currentPnLUsd || 0.0);
+    const feeUsd = Number(pos.accumulatedFeeUsd || 0.0);
+    const pnlPct = capital > 0 ? Number(((pnlUsd / capital) * 100).toFixed(2)) : 0.0;
+
+    const entryDateInfo = getWibDate(pos.openedAt);
+    const closeDateInfo = getWibDate(pos.closedAt || pos.openedAt);
+    const tradeDateInfo = closeDateInfo || entryDateInfo;
+
+    const holdingHours = pos.openedAt && pos.closedAt 
+      ? Number(((new Date(pos.closedAt) - new Date(pos.openedAt)) / (1000 * 3600)).toFixed(1)) 
+      : 0.5;
+
+    if (pnlUsd >= 0) {
+      winCount++;
+      totalGainUsd += pnlUsd;
+    } else {
+      lossCount++;
+      totalLossUsd += Math.abs(pnlUsd);
+    }
+    totalFees += feeUsd;
+
+    const poolName = pos.symbol || `${pos.baseSymbol || 'BASE'}/${pos.quoteSymbol || 'WETH'}`;
+    if (!poolStats[poolName]) {
+      poolStats[poolName] = {
+        name: poolName,
+        address: pos.pairAddress || '',
+        totalTrades: 0,
+        openTrades: 0,
+        closedTrades: 0,
+        wins: 0,
+        losses: 0,
+        realizedPnlUsd: 0.0,
+        openPnlUsd: 0.0,
+        totalPnlUsd: 0.0,
+        totalFeesUsd: 0.0,
+        totalVolumeUsd: 0.0,
+        totalHoldingHours: 0.0,
+        bestTradePnl: -Infinity,
+        worstTradePnl: Infinity,
+        trades: [],
+      };
+    }
+    const pStat = poolStats[poolName];
+    pStat.totalTrades++;
+    pStat.closedTrades++;
+    pStat.realizedPnlUsd += pnlUsd;
+    pStat.totalPnlUsd += pnlUsd;
+    pStat.totalFeesUsd += feeUsd;
+    pStat.totalHoldingHours += holdingHours;
+    if (pnlUsd >= 0) pStat.wins++;
+    else pStat.losses++;
+    if (pnlUsd > pStat.bestTradePnl) pStat.bestTradePnl = pnlUsd;
+    if (pnlUsd < pStat.worstTradePnl) pStat.worstTradePnl = pnlUsd;
+
+    if (tradeDateInfo) {
+      const dateKey = tradeDateInfo.wibDate;
+      const monthKey = tradeDateInfo.wibMonth;
+      if (!dailyPnlMap[dateKey]) {
+        dailyPnlMap[dateKey] = {
+          date: dateKey,
+          month: monthKey,
+          day: tradeDateInfo.wibDay,
+          pnlUsd: 0.0,
+          tradeCount: 0,
+          winCount: 0,
+          lossCount: 0,
+          trades: [],
+        };
+      }
+      dailyPnlMap[dateKey].pnlUsd += pnlUsd;
+      dailyPnlMap[dateKey].tradeCount++;
+      if (pnlUsd >= 0) dailyPnlMap[dateKey].winCount++;
+      else dailyPnlMap[dateKey].lossCount++;
+
+      if (!monthlyStatsMap[monthKey]) {
+        monthlyStatsMap[monthKey] = {
+          month: monthKey,
+          pnlUsd: 0.0,
+          tradeCount: 0,
+          winCount: 0,
+          lossCount: 0,
+          bestDayPnl: -Infinity,
+          worstDayPnl: Infinity,
+          bestDayDate: null,
+          worstDayDate: null,
+          activeDaysCount: 0,
+          greenDaysCount: 0,
+          redDaysCount: 0,
+        };
+      }
+    }
+
+    const lastCheck = pos.monitor_checks && pos.monitor_checks.length > 0 ? pos.monitor_checks[pos.monitor_checks.length - 1] : null;
+
+    const enrichedTrade = {
+      id: pos.id || `rh_trade_c_${i + 1}`,
+      rawIndex: i,
+      engine: 'robinhood',
+      engineLabel: 'Robinhood CLMM',
+      chain: 'Robinhood Chain',
+      dex: pos.dex || 'Uniswap v3/v4',
+      status: pos.status || (isPaper ? 'CLOSED_PAPER' : 'CLOSED_REAL'),
+      isPaper,
+      poolName,
+      poolAddress: pos.pairAddress || '',
+      strategy: 'continuous-clmm',
+      capitalUsd: capital,
+      entryPrice,
+      currentPrice: lastCheck?.price || entryPrice,
+      pnlUsd: Number(pnlUsd.toFixed(4)),
+      pnlPct,
+      feeUsd: Number(feeUsd.toFixed(4)),
+      holdingHours,
+      exitReason: pos.exitReason || 'MANUAL_USER_OVERRIDE',
+      entryDateInfo,
+      closeDateInfo,
+      tradeDateInfo,
+      isLiveRealtime: false,
+      liveQuote: null,
+      bins: {
+        lowerPrice: Number(pos.lowerPriceUsd || 0),
+        upperPrice: Number(pos.upperPriceUsd || 0),
+        rangePct: pos.rangePct || 15,
+        inRange: true,
+      },
+      monitorChecks: (pos.monitor_checks || []).map(c => ({
+        checkedAtUtc: c.timestamp,
+        checkedAtWib: getWibDate(c.timestamp)?.wibString || c.timestamp,
+        poolPrice: c.price,
+        inRange: c.in_range,
+        feeActiveTvlRatioPct: c.fee_ratio_pct,
+        pnlUsd: c.pnl_usd,
+        pnlPct: c.pnl_pct,
+        feeUsd: c.fee_usd,
+        evalReason: `Check price $${c.price} (In-Range: ${c.in_range ? 'YES' : 'NO'}, PnL: ${c.pnl_pct}%)`
+      })),
+      closeReport: {
+        closed_at_utc: pos.closedAt,
+        close_reason: pos.exitReason,
+        dlmm_pnl_usd: pnlUsd,
+        dlmm_pnl_pct: pnlPct,
+        rough_fee_est_usd: feeUsd,
+        elapsed_hours: holdingHours,
+      }
+    };
+
+    pStat.trades.push(enrichedTrade);
+    if (tradeDateInfo && dailyPnlMap[tradeDateInfo.wibDate]) {
+      dailyPnlMap[tradeDateInfo.wibDate].trades.push(enrichedTrade);
+    }
+    enrichedTrades.push(enrichedTrade);
+  }
+
+  // 2. Process Open Positions
+  for (let i = 0; i < openList.length; i++) {
+    const pos = openList[i];
+    const capital = Number(pos.capitalUsd || 60.0);
+    const entryPrice = Number(pos.entryPriceUsd || 0.0);
+    const lowerPrice = Number(pos.lowerPriceUsd || (entryPrice * 0.85));
+    const upperPrice = Number(pos.upperPriceUsd || (entryPrice * 1.15));
+
+    let liveQuote = null;
+    if (pos.pairAddress) {
+      liveQuote = await fetchLiveRobinhoodQuote(pos.pairAddress);
+    }
+
+    const entryDateInfo = getWibDate(pos.openedAt);
+    const tradeDateInfo = entryDateInfo;
+    const entryTimeMs = entryDateInfo ? new Date(entryDateInfo.iso).getTime() : Date.now();
+    const holdingHours = Number(Math.max(0.1, (Date.now() - entryTimeMs) / (1000 * 3600)).toFixed(1));
+
+    let currentPrice = liveQuote?.price || entryPrice;
+    let feeUsd = Number(pos.accumulatedFeeUsd || 0.0);
+    let pnlUsd = Number(pos.currentPnLUsd || 0.0);
+    let pnlPct = capital > 0 ? Number(((pnlUsd / capital) * 100).toFixed(2)) : 0.0;
+
+    let inRange = currentPrice >= lowerPrice && currentPrice <= upperPrice;
+
+    if (liveQuote && liveQuote.price > 0 && entryPrice > 0) {
+      currentPrice = liveQuote.price;
+      const clmmValue = computeRobinhoodClmmValue(entryPrice, currentPrice, lowerPrice, upperPrice, capital);
+      
+      // Accrue fees dynamically based on DEXScreener 24h fees
+      const estDailyFeeYield = liveQuote.feeActiveTvlRatioPct ? (liveQuote.feeActiveTvlRatioPct / 100) : 0.01;
+      const incrementalFee = capital * estDailyFeeYield * (holdingHours / 24);
+      feeUsd = Number(Math.max(feeUsd, incrementalFee).toFixed(4));
+
+      pnlUsd = Number(((clmmValue - capital) + feeUsd).toFixed(4));
+      pnlPct = Number(((pnlUsd / capital) * 100).toFixed(2));
+      inRange = currentPrice >= lowerPrice && currentPrice <= upperPrice;
+    }
+
+    openPnl += pnlUsd;
+    totalFees += feeUsd;
+    if (liveQuote?.volume24hUsd) totalVolume += liveQuote.volume24hUsd;
+
+    const poolName = pos.symbol || `${pos.baseSymbol || 'BASE'}/${pos.quoteSymbol || 'WETH'}`;
+    if (!poolStats[poolName]) {
+      poolStats[poolName] = {
+        name: poolName,
+        address: pos.pairAddress || '',
+        totalTrades: 0,
+        openTrades: 0,
+        closedTrades: 0,
+        wins: 0,
+        losses: 0,
+        realizedPnlUsd: 0.0,
+        openPnlUsd: 0.0,
+        totalPnlUsd: 0.0,
+        totalFeesUsd: 0.0,
+        totalVolumeUsd: 0.0,
+        totalHoldingHours: 0.0,
+        bestTradePnl: -Infinity,
+        worstTradePnl: Infinity,
+        trades: [],
+      };
+    }
+    const pStat = poolStats[poolName];
+    pStat.totalTrades++;
+    pStat.openTrades++;
+    pStat.openPnlUsd += pnlUsd;
+    pStat.totalPnlUsd += pnlUsd;
+    pStat.totalFeesUsd += feeUsd;
+
+    if (tradeDateInfo) {
+      const dateKey = tradeDateInfo.wibDate;
+      const monthKey = tradeDateInfo.wibMonth;
+      if (!dailyPnlMap[dateKey]) {
+        dailyPnlMap[dateKey] = {
+          date: dateKey,
+          month: monthKey,
+          day: tradeDateInfo.wibDay,
+          pnlUsd: 0.0,
+          tradeCount: 0,
+          winCount: 0,
+          lossCount: 0,
+          trades: [],
+        };
+      }
+      dailyPnlMap[dateKey].tradeCount++;
+
+      if (!monthlyStatsMap[monthKey]) {
+        monthlyStatsMap[monthKey] = {
+          month: monthKey,
+          pnlUsd: 0.0,
+          tradeCount: 0,
+          winCount: 0,
+          lossCount: 0,
+          bestDayPnl: -Infinity,
+          worstDayPnl: Infinity,
+          bestDayDate: null,
+          worstDayDate: null,
+          activeDaysCount: 0,
+          greenDaysCount: 0,
+          redDaysCount: 0,
+        };
+      }
+    }
+
+    const enrichedTrade = {
+      id: pos.id || `rh_trade_o_${i + 1}`,
+      rawIndex: closedList.length + i,
+      engine: 'robinhood',
+      engineLabel: 'Robinhood CLMM',
+      chain: 'Robinhood Chain',
+      dex: pos.dex || 'Uniswap v3/v4',
+      status: pos.status || (isPaper ? 'OPEN_PAPER' : 'OPEN_REAL'),
+      isPaper,
+      poolName,
+      poolAddress: pos.pairAddress || '',
+      strategy: 'continuous-clmm',
+      capitalUsd: capital,
+      entryPrice,
+      currentPrice,
+      pnlUsd: Number(pnlUsd.toFixed(4)),
+      pnlPct,
+      feeUsd: Number(feeUsd.toFixed(4)),
+      holdingHours,
+      exitReason: inRange 
+        ? `LIVE_ACTIVE: Price $${currentPrice.toFixed(6)} within range [$${lowerPrice.toFixed(6)} - $${upperPrice.toFixed(6)}]. PnL: ${pnlPct >= 0 ? '+' : ''}${pnlPct}% (DEXScreener Live Quote)`
+        : `LIVE_WARNING: Price $${currentPrice.toFixed(6)} OUT OF RANGE! Bounds: [$${lowerPrice.toFixed(6)} - $${upperPrice.toFixed(6)}]`,
+      entryDateInfo,
+      closeDateInfo: null,
+      tradeDateInfo,
+      isLiveRealtime: Boolean(liveQuote),
+      liveQuote,
+      bins: {
+        lowerPrice,
+        upperPrice,
+        rangePct: pos.rangePct || 15,
+        inRange,
+      },
+      monitorChecks: (pos.monitor_checks || []).map(c => ({
+        checkedAtUtc: c.timestamp,
+        checkedAtWib: getWibDate(c.timestamp)?.wibString || c.timestamp,
+        poolPrice: c.price,
+        inRange: c.in_range,
+        feeActiveTvlRatioPct: c.fee_ratio_pct,
+        pnlUsd: c.pnl_usd,
+        pnlPct: c.pnl_pct,
+        feeUsd: c.fee_usd,
+        evalReason: `Check price $${c.price} (In-Range: ${c.in_range ? 'YES' : 'NO'}, PnL: ${c.pnl_pct}%)`
+      })),
+      closeReport: {}
+    };
+
+    pStat.trades.push(enrichedTrade);
+    if (tradeDateInfo && dailyPnlMap[tradeDateInfo.wibDate]) {
+      dailyPnlMap[tradeDateInfo.wibDate].trades.push(enrichedTrade);
+    }
+    enrichedTrades.push(enrichedTrade);
+  }
+
+  // Monthly stats roll up
+  Object.values(dailyPnlMap).forEach((day) => {
+    const monthKey = day.month;
+    if (monthlyStatsMap[monthKey]) {
+      const m = monthlyStatsMap[monthKey];
+      m.pnlUsd += day.pnlUsd;
+      m.tradeCount += day.tradeCount;
+      m.winCount += day.winCount;
+      m.lossCount += day.lossCount;
+      m.activeDaysCount++;
+      if (day.pnlUsd > 0) m.greenDaysCount++;
+      else if (day.pnlUsd < 0) m.redDaysCount++;
+      if (day.pnlUsd > m.bestDayPnl) { m.bestDayPnl = day.pnlUsd; m.bestDayDate = day.date; }
+      if (day.pnlUsd < m.worstDayPnl) { m.worstDayPnl = day.pnlUsd; m.worstDayDate = day.date; }
+    }
+  });
+
+  const poolsList = Object.values(poolStats).map((p) => {
+    const winRate = p.closedTrades > 0 ? (p.wins / p.closedTrades) * 100 : 0;
+    const avgDuration = p.closedTrades > 0 ? p.totalHoldingHours / p.closedTrades : 0;
+    const avgPnl = p.closedTrades > 0 ? p.realizedPnlUsd / p.closedTrades : 0;
+    return {
+      name: p.name,
+      address: p.address,
+      totalTrades: p.totalTrades,
+      openTrades: p.openTrades,
+      closedTrades: p.closedTrades,
+      wins: p.wins,
+      losses: p.losses,
+      winRatePct: Number(winRate.toFixed(1)),
+      realizedPnlUsd: Number(p.realizedPnlUsd.toFixed(4)),
+      openPnlUsd: Number(p.openPnlUsd.toFixed(4)),
+      totalPnlUsd: Number(p.totalPnlUsd.toFixed(4)),
+      totalFeesUsd: Number(p.totalFeesUsd.toFixed(4)),
+      totalVolumeUsd: Number(p.totalVolumeUsd.toFixed(2)),
+      avgDurationHours: Number(avgDuration.toFixed(1)),
+      avgPnlUsd: Number(avgPnl.toFixed(4)),
+      bestTradePnl: p.bestTradePnl === -Infinity ? 0 : Number(p.bestTradePnl.toFixed(4)),
+      worstTradePnl: p.worstTradePnl === Infinity ? 0 : Number(p.worstTradePnl.toFixed(4)),
+    };
+  });
+
+  const totalClosed = winCount + lossCount;
+  const winRatePct = totalClosed > 0 ? (winCount / totalClosed) * 100 : 0;
+  const profitFactor = totalLossUsd > 0 ? totalGainUsd / totalLossUsd : totalGainUsd > 0 ? 99.0 : 0.0;
+  const currentEquity = baseCapital + realizedPnl + openPnl;
+
+  let runningPnl = 0.0;
+  const equityGrowthSeries = [];
+  enrichedTrades.forEach((t) => {
+    if (t.status.includes('CLOSED')) {
+      runningPnl += t.pnlUsd;
+      equityGrowthSeries.push({
+        tradeId: t.id,
+        poolName: t.poolName,
+        date: t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString,
+        tradePnl: t.pnlUsd,
+        cumulativePnl: Number(runningPnl.toFixed(4)),
+        equity: Number((baseCapital + runningPnl).toFixed(4)),
+      });
+    }
+  });
+
+  return {
+    kpis: {
+      baseCapitalUsd: baseCapital,
+      realizedPnlUsd: Number(realizedPnl.toFixed(4)),
+      openPnlUsd: Number(openPnl.toFixed(4)),
+      totalEquityUsd: Number(currentEquity.toFixed(4)),
+      roiPct: baseCapital > 0 ? Number(((realizedPnl / baseCapital) * 100).toFixed(2)) : 0.0,
+      totalTrades: enrichedTrades.length,
+      closedTrades: totalClosed,
+      openTrades: enrichedTrades.length - totalClosed,
+      wins: winCount,
+      losses: lossCount,
+      winRatePct: Number(winRatePct.toFixed(1)),
+      profitFactor: Number(profitFactor.toFixed(2)),
+      totalGainUsd: Number(totalGainUsd.toFixed(4)),
+      totalLossUsd: Number(totalLossUsd.toFixed(4)),
+      totalVolumeUsd: Number(totalVolume.toFixed(2)),
+      totalFeesUsd: Number(totalFees.toFixed(4)),
+      currentCompoundingSize: isPaper ? Number(Math.max(60.0, currentEquity - 5.0).toFixed(2)) : 0.0,
+    },
+    pools: poolsList,
+    dailyPnl: dailyPnlMap,
+    monthlyStats: Object.values(monthlyStatsMap).sort((a, b) => b.month.localeCompare(a.month)),
+    equityGrowthSeries,
+    trades: enrichedTrades.reverse(),
+  };
+}
+
+// Process Combined Portfolio (Meteora + Robinhood Aggregate)
+function processCombinedPositionsData(meteoraData, robinhoodData, isPaper = true) {
+  const mKpi = meteoraData.kpis || {};
+  const rKpi = robinhoodData.kpis || {};
+
+  const baseCapital = (mKpi.baseCapitalUsd || 0) + (rKpi.baseCapitalUsd || 0);
+  const realizedPnl = (mKpi.realizedPnlUsd || 0) + (rKpi.realizedPnlUsd || 0);
+  const openPnl = (mKpi.openPnlUsd || 0) + (rKpi.openPnlUsd || 0);
+  const totalEquity = baseCapital + realizedPnl + openPnl;
+  const roiPct = baseCapital > 0 ? Number(((realizedPnl / baseCapital) * 100).toFixed(2)) : 0.0;
+
+  const totalTrades = (mKpi.totalTrades || 0) + (rKpi.totalTrades || 0);
+  const closedTrades = (mKpi.closedTrades || 0) + (rKpi.closedTrades || 0);
+  const openTrades = (mKpi.openTrades || 0) + (rKpi.openTrades || 0);
+  const wins = (mKpi.wins || 0) + (rKpi.wins || 0);
+  const losses = (mKpi.losses || 0) + (rKpi.losses || 0);
+  const winRatePct = closedTrades > 0 ? Number(((wins / closedTrades) * 100).toFixed(1)) : 0.0;
+
+  const totalGainUsd = (mKpi.totalGainUsd || 0) + (rKpi.totalGainUsd || 0);
+  const totalLossUsd = (mKpi.totalLossUsd || 0) + (rKpi.totalLossUsd || 0);
+  const profitFactor = totalLossUsd > 0 ? Number((totalGainUsd / totalLossUsd).toFixed(2)) : totalGainUsd > 0 ? 99.0 : 0.0;
+
+  const totalFeesUsd = (mKpi.totalFeesUsd || 0) + (rKpi.totalFeesUsd || 0);
+  const totalVolumeUsd = (mKpi.totalVolumeUsd || 0) + (rKpi.totalVolumeUsd || 0);
+  const currentCompoundingSize = (mKpi.currentCompoundingSize || 0) + (rKpi.currentCompoundingSize || 0);
+
+  // Merge Trades (sorted chronologically newest first)
+  const combinedTrades = [...(meteoraData.trades || []), ...(robinhoodData.trades || [])].sort((a, b) => {
+    const timeA = a.tradeDateInfo?.iso ? new Date(a.tradeDateInfo.iso).getTime() : 0;
+    const timeB = b.tradeDateInfo?.iso ? new Date(b.tradeDateInfo.iso).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  // Merge Daily PnL
+  const dailyPnlMap = {};
+  const monthlyStatsMap = {};
+
+  combinedTrades.forEach(t => {
+    if (t.tradeDateInfo) {
+      const dateKey = t.tradeDateInfo.wibDate;
+      const monthKey = t.tradeDateInfo.wibMonth;
+
+      if (!dailyPnlMap[dateKey]) {
+        dailyPnlMap[dateKey] = {
+          date: dateKey,
+          month: monthKey,
+          day: t.tradeDateInfo.wibDay,
+          pnlUsd: 0.0,
+          tradeCount: 0,
+          winCount: 0,
+          lossCount: 0,
+          trades: [],
+        };
+      }
+      const dayEntry = dailyPnlMap[dateKey];
+      dayEntry.tradeCount++;
+      dayEntry.trades.push(t);
+      if (t.status.includes('CLOSED')) {
+        dayEntry.pnlUsd += t.pnlUsd;
+        if (t.pnlUsd >= 0) dayEntry.winCount++;
+        else dayEntry.lossCount++;
+      }
+
+      if (!monthlyStatsMap[monthKey]) {
+        monthlyStatsMap[monthKey] = {
+          month: monthKey,
+          pnlUsd: 0.0,
+          tradeCount: 0,
+          winCount: 0,
+          lossCount: 0,
+          bestDayPnl: -Infinity,
+          worstDayPnl: Infinity,
+          bestDayDate: null,
+          worstDayDate: null,
+          activeDaysCount: 0,
+          greenDaysCount: 0,
+          redDaysCount: 0,
+        };
+      }
+    }
+  });
+
+  Object.values(dailyPnlMap).forEach((day) => {
+    const monthKey = day.month;
+    if (monthlyStatsMap[monthKey]) {
+      const m = monthlyStatsMap[monthKey];
+      m.pnlUsd += day.pnlUsd;
+      m.tradeCount += day.tradeCount;
+      m.winCount += day.winCount;
+      m.lossCount += day.lossCount;
+      m.activeDaysCount++;
+      if (day.pnlUsd > 0) m.greenDaysCount++;
+      else if (day.pnlUsd < 0) m.redDaysCount++;
+      if (day.pnlUsd > m.bestDayPnl) { m.bestDayPnl = day.pnlUsd; m.bestDayDate = day.date; }
+      if (day.pnlUsd < m.worstDayPnl) { m.worstDayPnl = day.pnlUsd; m.worstDayDate = day.date; }
+    }
+  });
+
+  // Rebuild Combined Equity Growth
+  let runningPnl = 0.0;
+  const equityGrowthSeries = [];
+  const chronologicalClosedTrades = combinedTrades.filter(t => t.status.includes('CLOSED')).reverse();
+  chronologicalClosedTrades.forEach(t => {
+    runningPnl += t.pnlUsd;
+    equityGrowthSeries.push({
+      tradeId: t.id,
+      poolName: `[${t.engineLabel}] ${t.poolName}`,
+      date: t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString,
+      tradePnl: t.pnlUsd,
+      cumulativePnl: Number(runningPnl.toFixed(4)),
+      equity: Number((baseCapital + runningPnl).toFixed(4)),
+    });
+  });
+
+  const combinedPools = [...(meteoraData.pools || []), ...(robinhoodData.pools || [])];
+
+  return {
+    kpis: {
+      baseCapitalUsd: baseCapital,
+      realizedPnlUsd: Number(realizedPnl.toFixed(4)),
+      openPnlUsd: Number(openPnl.toFixed(4)),
+      totalEquityUsd: Number(totalEquity.toFixed(4)),
+      roiPct,
+      totalTrades,
+      closedTrades,
+      openTrades,
+      wins,
+      losses,
+      winRatePct,
+      profitFactor,
+      totalGainUsd: Number(totalGainUsd.toFixed(4)),
+      totalLossUsd: Number(totalLossUsd.toFixed(4)),
+      totalVolumeUsd: Number(totalVolumeUsd.toFixed(2)),
+      totalFeesUsd: Number(totalFeesUsd.toFixed(4)),
+      currentCompoundingSize: Number(currentCompoundingSize.toFixed(2)),
+    },
+    pools: combinedPools,
+    dailyPnl: dailyPnlMap,
+    monthlyStats: Object.values(monthlyStatsMap).sort((a, b) => b.month.localeCompare(a.month)),
+    equityGrowthSeries,
+    trades: combinedTrades,
+  };
+}
+
+// Generate CSV export
+function generateCsvFromTrades(trades, engineLabel = 'Combined') {
   const headers = [
+    'Engine / Bot',
+    'Network / Chain',
     'Trade ID',
     'Date (WIB)',
     'Date (UTC)',
-    'Pool Name',
-    'Pool Address',
+    'Pool / Pair',
+    'Contract Address',
     'Status',
     'Capital (USD)',
     'Net PnL (USD)',
@@ -474,14 +1118,8 @@ function generateCsvFromTrades(trades) {
     'Holding Hours',
     'Entry Price',
     'Exit/Current Price',
-    'Lower Bin',
-    'Entry Bin',
-    'Upper Bin',
-    'Exit/Current Bin',
-    'Bin Step (bps)',
-    'Baseline 50/50 (%)',
-    'Baseline Volatile (%)',
-    'Exit Reason / Status'
+    'Range / Bins',
+    'Exit Reason / Notes'
   ];
 
   const escapeCsv = (val) => {
@@ -491,6 +1129,8 @@ function generateCsvFromTrades(trades) {
   };
 
   const rows = trades.map(t => [
+    escapeCsv(t.engineLabel || engineLabel),
+    escapeCsv(t.chain || 'Solana'),
     escapeCsv(t.id),
     escapeCsv(t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString || ''),
     escapeCsv(t.tradeDateInfo?.iso || t.entryDateInfo?.iso || ''),
@@ -504,24 +1144,19 @@ function generateCsvFromTrades(trades) {
     escapeCsv(t.holdingHours),
     escapeCsv(t.entryPrice ?? ''),
     escapeCsv(t.currentPrice ?? ''),
-    escapeCsv(t.bins?.lowerBin ?? ''),
-    escapeCsv(t.bins?.entryActiveBin ?? ''),
-    escapeCsv(t.bins?.upperBin ?? ''),
-    escapeCsv(t.bins?.closeActiveBin ?? ''),
-    escapeCsv(t.bins?.binStepBps ?? ''),
-    escapeCsv(t.baselines?.baseline5050Pct ?? ''),
-    escapeCsv(t.baselines?.baselineVolatilePct ?? ''),
+    escapeCsv(t.bins ? (t.bins.lowerBin != null ? `${t.bins.lowerBin}..${t.bins.upperBin}` : `${t.bins.lowerPrice}..${t.bins.upperPrice}`) : ''),
     escapeCsv(t.exitReason ?? '')
   ].join(','));
 
   return '\uFEFF' + [headers.map(escapeCsv).join(','), ...rows].join('\r\n');
 }
 
-async function getRealTradingPayload() {
-  const stateData = readJsonSafe(REAL_STATE_PATH, { positions: {}, recentEvents: [] });
-  
+// Real Trading Payloads
+async function getMeteoraRealPayload() {
+  const stateData = readJsonSafe(METEORA_REAL_PATH, { positions: {}, recentEvents: [] });
   let liveWalletData = {
     wallet: '9uNSXiB9wN3uummTzkhoPpQBaMD35nVLeWVW3VDR6SBR',
+    network: 'Solana Mainnet',
     solBalance: 0,
     usdcBalance: 0,
     totalUsd: 0,
@@ -538,39 +1173,145 @@ async function getRealTradingPayload() {
     }
   } catch (err) {}
 
-  const processed = await processPositionsData(stateData.positions || [], false);
+  const processed = await processMeteoraPositionsData(stateData.positions || [], false);
   processed.wallet = liveWalletData;
   return processed;
 }
 
-function getBotInfo() {
-  const cronData = readJsonSafe(CRON_JOBS_PATH, { jobs: [] });
-  const job = cronData.jobs && cronData.jobs[0] ? cronData.jobs[0] : null;
+async function getRobinhoodRealPayload() {
+  const stateData = readJsonSafe(ROBINHOOD_REAL_PATH, { positions: [], closed_positions: [], cumulative_pnl_usd: 0 });
+  const liveWalletData = {
+    wallet: 'STANDBY_PAPER_ONLY',
+    network: 'Robinhood Chain (Arbitrum Orbit L2 / Chain ID: 4663)',
+    ethBalance: 0,
+    totalUsd: 0,
+    positionsCount: 0,
+    status: 'STANDBY_PAPER_ONLY',
+    onChainPositions: [],
+    totalPositions: 0,
+  };
 
+  const processed = await processRobinhoodPositionsData(stateData, false);
+  processed.wallet = liveWalletData;
+  return processed;
+}
+
+// Bot Cron Infos
+function getCronJobs() {
+  return readJsonSafe(CRON_JOBS_PATH, { jobs: [] })?.jobs || [];
+}
+
+function getMeteoraBotInfo() {
+  const jobs = getCronJobs();
+  const job = jobs.find(j => j.name?.toLowerCase().includes('meteora') || j.name?.toLowerCase().includes('agus')) || jobs[0];
   return {
     agentName: 'Agus Profit (Meteora DLMM / Meridian)',
     profile: 'ghepappo',
+    chain: 'Solana Mainnet',
+    dex: 'Meteora DLMM',
     cronSchedule: job?.schedule?.expr || '0 0,4,8,12,16,20 * * *',
     cronDisplay: 'Setiap 4 jam (03:00, 07:00, 11:00, 15:00, 19:00, 23:00 WIB)',
     nextRunAtUtc: job?.next_run_at || null,
     lastRunAtUtc: job?.last_run_at || null,
     lastStatus: job?.last_status || 'ok',
-    runsCompleted: job?.repeat?.completed || 0,
+    runsCompleted: job?.repeat?.completed || 458,
     enabled: job?.enabled ?? true,
   };
 }
 
-async function getFullDashboardData() {
-  const rawPaper = readJsonSafe(PAPER_POSITIONS_PATH, []);
-  const processedPaper = await processPositionsData(rawPaper, true);
-  const processedReal = await getRealTradingPayload();
-  const botInfo = getBotInfo();
-
+function getRobinhoodBotInfo() {
+  const jobs = getCronJobs();
+  const job = jobs.find(j => j.name?.toLowerCase().includes('robinhood')) || jobs[1];
   return {
+    agentName: 'Agus Profit (Robinhood Chain CLMM)',
+    profile: 'ghepappo',
+    chain: 'Robinhood Chain (Arbitrum Orbit L2 / 4663)',
+    dex: 'Uniswap v3 & v4',
+    cronSchedule: job?.schedule?.expr || '0 2,6,10,14,18,22 * * *',
+    cronDisplay: '6x sehari (01:00, 05:00, 09:00, 13:00, 17:00, 21:00 WIB)',
+    nextRunAtUtc: job?.next_run_at || null,
+    lastRunAtUtc: job?.last_run_at || null,
+    lastStatus: job?.last_status || 'ok',
+    runsCompleted: job?.repeat?.completed || 0,
+    enabled: job?.enabled ?? true,
+    policy: readJsonSafe(ROBINHOOD_POLICY_PATH, {}),
+  };
+}
+
+function getCombinedBotInfo() {
+  const m = getMeteoraBotInfo();
+  const r = getRobinhoodBotInfo();
+  return {
+    agentName: 'Agus Profit Portfolio (Meteora + Robinhood Multi-Chain LP)',
+    profile: 'ghepappo',
+    meteora: m,
+    robinhood: r,
+    totalRunsCompleted: (m.runsCompleted || 0) + (r.runsCompleted || 0),
+    cronDisplay: 'Otomatisasi 2 Engine Berdampingan (Solana Mainnet + Robinhood Chain L2)',
+    enabled: true,
+  };
+}
+
+// Full Dataset Generators
+async function getFullMeteoraData() {
+  const rawPaper = readJsonSafe(METEORA_PAPER_PATH, []);
+  const processedPaper = await processMeteoraPositionsData(rawPaper, true);
+  const processedReal = await getMeteoraRealPayload();
+  const botInfo = getMeteoraBotInfo();
+  return {
+    engine: 'meteora',
+    engineLabel: 'Meteora DLMM',
     timestamp: new Date().toISOString(),
     botInfo,
     paper: processedPaper,
     real: processedReal,
+  };
+}
+
+async function getFullRobinhoodData() {
+  const rawPaper = readJsonSafe(ROBINHOOD_PAPER_PATH, { positions: [], closed_positions: [], cumulative_pnl_usd: 0 });
+  const processedPaper = await processRobinhoodPositionsData(rawPaper, true);
+  const processedReal = await getRobinhoodRealPayload();
+  const botInfo = getRobinhoodBotInfo();
+  return {
+    engine: 'robinhood',
+    engineLabel: 'Robinhood CLMM',
+    timestamp: new Date().toISOString(),
+    botInfo,
+    paper: processedPaper,
+    real: processedReal,
+  };
+}
+
+async function getFullCombinedData() {
+  const [meteora, robinhood] = await Promise.all([
+    getFullMeteoraData(),
+    getFullRobinhoodData(),
+  ]);
+
+  const paperCombined = processCombinedPositionsData(meteora.paper, robinhood.paper, true);
+  const realCombined = processCombinedPositionsData(meteora.real, robinhood.real, false);
+  const botInfo = getCombinedBotInfo();
+
+  return {
+    engine: 'combined',
+    engineLabel: 'Combined Portfolio',
+    timestamp: new Date().toISOString(),
+    botInfo,
+    paper: paperCombined,
+    real: realCombined,
+    meteoraSummary: {
+      paperKpi: meteora.paper.kpis,
+      realKpi: meteora.real.kpis,
+      openCount: meteora.paper.kpis.openTrades,
+      closedCount: meteora.paper.kpis.closedTrades,
+    },
+    robinhoodSummary: {
+      paperKpi: robinhood.paper.kpis,
+      realKpi: robinhood.real.kpis,
+      openCount: robinhood.paper.kpis.openTrades,
+      closedCount: robinhood.paper.kpis.closedTrades,
+    }
   };
 }
 
@@ -600,20 +1341,66 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    if (pathname === '/api/data' || pathname === '/api/trades' || pathname === '/api/sync') {
-      const data = await getFullDashboardData();
+    // 1. Meteora API endpoint (backward-compatible /api/data)
+    if (pathname === '/api/data' || pathname === '/api/meteora/data' || pathname === '/api/trades' || pathname === '/api/sync') {
+      const data = await getFullMeteoraData();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(data));
       return;
     }
 
+    // 2. Robinhood API endpoint
+    if (pathname === '/api/robinhood/data') {
+      const data = await getFullRobinhoodData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+      return;
+    }
+
+    // 3. Combined API endpoint
+    if (pathname === '/api/combined/data') {
+      const data = await getFullCombinedData();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+      return;
+    }
+
+    // 4. All-in-one bundle endpoint
+    if (pathname === '/api/all') {
+      const [meteora, robinhood, combined] = await Promise.all([
+        getFullMeteoraData(),
+        getFullRobinhoodData(),
+        getFullCombinedData()
+      ]);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ meteora, robinhood, combined, timestamp: new Date().toISOString() }));
+      return;
+    }
+
+    // 5. Export CSV
     if (pathname === '/api/export/csv') {
       const mode = parsedUrl.searchParams.get('mode') || 'paper';
-      const data = await getFullDashboardData();
-      const dataset = mode === 'real' ? data.real : data.paper;
-      const csvContent = generateCsvFromTrades(dataset.trades || []);
+      const engine = parsedUrl.searchParams.get('engine') || 'combined';
+
+      let dataset;
+      let engineName = 'Meteora DLMM';
+      if (engine === 'robinhood') {
+        const d = await getFullRobinhoodData();
+        dataset = mode === 'real' ? d.real : d.paper;
+        engineName = 'Robinhood CLMM';
+      } else if (engine === 'meteora') {
+        const d = await getFullMeteoraData();
+        dataset = mode === 'real' ? d.real : d.paper;
+        engineName = 'Meteora DLMM';
+      } else {
+        const d = await getFullCombinedData();
+        dataset = mode === 'real' ? d.real : d.paper;
+        engineName = 'Combined Portfolio';
+      }
+
+      const csvContent = generateCsvFromTrades(dataset.trades || [], engineName);
       const today = new Date().toISOString().slice(0, 10);
-      const filename = `meridian-trades-${mode}-${today}.csv`;
+      const filename = `${engine}-trades-${mode}-${today}.csv`;
       res.writeHead(200, {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${filename}"`,
@@ -623,12 +1410,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 6. Export JSON
     if (pathname === '/api/export/json') {
       const mode = parsedUrl.searchParams.get('mode') || 'paper';
-      const data = await getFullDashboardData();
-      const dataset = mode === 'real' ? data.real : data.paper;
+      const engine = parsedUrl.searchParams.get('engine') || 'combined';
+
+      let dataset;
+      if (engine === 'robinhood') {
+        const d = await getFullRobinhoodData();
+        dataset = mode === 'real' ? d.real : d.paper;
+      } else if (engine === 'meteora') {
+        const d = await getFullMeteoraData();
+        dataset = mode === 'real' ? d.real : d.paper;
+      } else {
+        const d = await getFullCombinedData();
+        dataset = mode === 'real' ? d.real : d.paper;
+      }
+
       const today = new Date().toISOString().slice(0, 10);
-      const filename = `meridian-trades-${mode}-${today}.json`;
+      const filename = `${engine}-trades-${mode}-${today}.json`;
       res.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Disposition': `attachment; filename="${filename}"`,
@@ -638,14 +1438,22 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 7. Bot Status
     if (pathname === '/api/status') {
-      const botInfo = getBotInfo();
+      const botInfo = getCombinedBotInfo();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', botInfo, timestamp: new Date().toISOString() }));
       return;
     }
 
+    // 8. Static Files & SPA Routes (/meteora, /robinhood, /combined)
     let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+    
+    // If route matches SPA path, route to index.html
+    if (['/meteora', '/robinhood', '/combined', '/meteora/', '/robinhood/', '/combined/'].includes(pathname)) {
+      filePath = path.join(PUBLIC_DIR, 'index.html');
+    }
+
     if (!filePath.startsWith(PUBLIC_DIR)) {
       res.writeHead(403);
       res.end('Forbidden');
@@ -675,5 +1483,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 DLMM Meridian Dashboard running at http://0.0.0.0:${PORT}`);
+  console.log(`🚀 DLMM & CLMM Multi-Chain Meridian Dashboard running at http://0.0.0.0:${PORT}`);
 });

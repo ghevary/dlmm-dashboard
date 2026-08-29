@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Meridian DLMM Analytics • Profile ghepappo</title>
+  <title id="page-title">Meridian Multi-Chain LP Suite • Profile ghepappo</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -90,6 +90,23 @@
         </div>
       </div>
 
+      
+      <!-- Desktop Engine Selector Tabs -->
+      <div class="hidden md:flex items-center bg-bg-subtle p-1 rounded-xl border border-border-main gap-1">
+        <button id="tab-engine-meteora" onclick="switchEngine('meteora')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-brand-purple/20 text-purple-200 border border-brand-purple/30 shadow-sm">
+          <span>🪐 Meteora DLMM</span>
+          <span id="badge-meteora-count" class="text-[10px] px-1.5 py-0.2 rounded-full bg-brand-purple/30 text-purple-200 font-mono">-</span>
+        </button>
+        <button id="tab-engine-robinhood" onclick="switchEngine('robinhood')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200">
+          <span>🏹 Robinhood CLMM</span>
+          <span id="badge-robinhood-count" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-400 font-mono">-</span>
+        </button>
+        <button id="tab-engine-combined" onclick="switchEngine('combined')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200">
+          <span>🌐 Combined Portfolio</span>
+          <span id="badge-combined-count" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-400 font-mono">-</span>
+        </button>
+      </div>
+
       <!-- Desktop Navigation Controls -->
       <div class="hidden lg:flex items-center gap-3">
         <div class="bg-bg-subtle p-1 rounded-xl border border-border-main flex items-center gap-1">
@@ -121,10 +138,10 @@
           </button>
           <div id="export-menu" class="hidden absolute right-0 mt-2 w-40 rounded-xl bg-bg-card border border-border-main shadow-2xl z-50 p-1">
             <button onclick="downloadExport('csv')" class="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-slate-300 hover:bg-bg-hover hover:text-white text-left">
-              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Export CSV
+              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Export CSV (<span id="export-engine-label-csv">Active</span>)
             </button>
             <button onclick="downloadExport('json')" class="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg text-slate-300 hover:bg-bg-hover hover:text-white text-left">
-              <i data-lucide="file-json" class="w-4 h-4 text-brand-purple"></i> Export JSON
+              <i data-lucide="file-json" class="w-4 h-4 text-brand-purple"></i> Export JSON (<span id="export-engine-label-json">Active</span>)
             </button>
           </div>
         </div>
@@ -150,6 +167,25 @@
 
     <!-- Mobile Slide-Down Menu Drawer -->
     <div id="mobile-drawer" class="hidden lg:hidden border-t border-border-main bg-bg-card/95 backdrop-blur-xl px-4 py-4 space-y-4 shadow-2xl animate-in slide-in-from-top duration-200">
+
+      <div class="space-y-1.5">
+        <span class="text-[10px] text-slate-500 uppercase font-mono tracking-wider">Pilih Dashboard Engine</span>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button onclick="switchEngine('meteora'); toggleMobileMenu();" id="drawer-tab-meteora" class="p-2 rounded-xl border border-brand-purple/40 bg-brand-purple/20 text-purple-200 text-[11px] font-semibold flex flex-col items-center justify-center gap-1">
+            <span>🪐 Meteora</span>
+            <span class="text-[9px] font-mono text-purple-300" id="drawer-meteora-count">-</span>
+          </button>
+          <button onclick="switchEngine('robinhood'); toggleMobileMenu();" id="drawer-tab-robinhood" class="p-2 rounded-xl border border-border-main bg-bg-main text-slate-400 text-[11px] font-semibold flex flex-col items-center justify-center gap-1">
+            <span>🏹 Robinhood</span>
+            <span class="text-[9px] font-mono text-slate-400" id="drawer-robinhood-count">-</span>
+          </button>
+          <button onclick="switchEngine('combined'); toggleMobileMenu();" id="drawer-tab-combined" class="p-2 rounded-xl border border-border-main bg-bg-main text-slate-400 text-[11px] font-semibold flex flex-col items-center justify-center gap-1">
+            <span>🌐 Combined</span>
+            <span class="text-[9px] font-mono text-slate-400" id="drawer-combined-count">-</span>
+          </button>
+        </div>
+      </div>
+
       <div class="space-y-1.5">
         <span class="text-[10px] text-slate-500 uppercase font-mono tracking-wider">Pilih Mode Trading</span>
         <div class="grid grid-cols-2 gap-2">
@@ -225,6 +261,85 @@
     </section>
 
     <!-- HERO METRICS OVERVIEW (Responsive 2 cols on mobile, 6 cols on desktop) -->
+    
+    <!-- STRATEGY BREAKDOWN CARDS (Visible only on Combined view) -->
+    <section id="combined-strategy-cards" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-200">
+      <!-- Meteora Card -->
+      <div class="glass-card rounded-2xl p-4 border-l-4 border-l-brand-purple space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-brand-purple/20 border border-brand-purple/40 flex items-center justify-center text-lg shadow-sm">
+              🪐
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-white">Meteora DLMM</h4>
+              <p class="text-[10px] text-slate-400 font-mono">Solana Mainnet • Dynamic Liquidity Market Maker</p>
+            </div>
+          </div>
+          <button onclick="switchEngine('meteora')" class="px-2.5 py-1 rounded-lg bg-brand-purple/20 hover:bg-brand-purple/30 text-purple-300 border border-brand-purple/40 text-[11px] font-semibold transition flex items-center gap-1">
+            <span>Meteora View</span>
+            <i data-lucide="arrow-right" class="w-3 h-3"></i>
+          </button>
+        </div>
+        <div class="grid grid-cols-4 gap-2 bg-bg-main/60 p-2.5 rounded-xl border border-border-main/50 text-xs font-mono">
+          <div>
+            <span class="text-[9px] text-slate-500 block uppercase">Base</span>
+            <span class="font-bold text-white" id="card-m-base">$60.00</span>
+          </div>
+          <div>
+            <span class="text-[9px] text-slate-500 block uppercase">Realized</span>
+            <span class="font-bold text-emerald-400" id="card-m-pnl">+$60.14</span>
+          </div>
+          <div>
+            <span class="text-[9px] text-slate-500 block uppercase">Win Rate</span>
+            <span class="font-bold text-white" id="card-m-winrate">65.2%</span>
+          </div>
+          <div>
+            <span class="text-[9px] text-slate-500 block uppercase">Trades</span>
+            <span class="font-bold text-purple-300" id="card-m-trades">46</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Robinhood Card -->
+      <div class="glass-card rounded-2xl p-4 border-l-4 border-l-emerald-500 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-lg shadow-sm">
+              🏹
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-white">Robinhood CLMM</h4>
+              <p class="text-[10px] text-slate-400 font-mono">Robinhood Chain (Arbitrum Orbit L2) • Uniswap v3/v4</p>
+            </div>
+          </div>
+          <button onclick="switchEngine('robinhood')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold transition flex items-center gap-1">
+            <span>Robinhood View</span>
+            <i data-lucide="arrow-right" class="w-3 h-3"></i>
+          </button>
+        </div>
+        <div class="grid grid-cols-4 gap-2 bg-bg-main/60 p-2.5 rounded-xl border border-border-main/50 text-xs font-mono">
+          <div>
+            <span class="text-[9px] text-slate-500 block uppercase">Base</span>
+            <span class="font-bold text-white" id="card-r-base">$60.00</span>
+          </div>
+          <div>
+            <span class="text-[9px] text-slate-500 block uppercase">Realized</span>
+            <span class="font-bold text-emerald-400" id="card-r-pnl">+$0.85</span>
+          </div>
+          <div>
+            <span class="text-[9px] text-slate-500 block uppercase">Win Rate</span>
+            <span class="font-bold text-white" id="card-r-winrate">100%</span>
+          </div>
+          <div>
+            <span class="text-[9px] text-slate-500 block uppercase">Trades</span>
+            <span class="font-bold text-emerald-300" id="card-r-trades">2</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
     <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4">
       <div class="col-span-2 glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
         <div class="absolute -right-8 -top-8 w-28 h-28 bg-brand-sol/10 rounded-full blur-2xl group-hover:bg-brand-sol/20 transition"></div>
@@ -433,42 +548,62 @@
     </section>
 
     <!-- REAL TRADING SPECIFIC STATUS CARD (SHOWN ONLY IN REAL MODE) -->
-    <section id="real-trading-info-card" class="hidden glass-card rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 border-l-4 border-l-cyan-400 glow-cyan">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-main pb-3 sm:pb-4">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-            <h3 class="text-sm sm:text-base font-bold text-white">Real Trading Mode On-Chain Monitor</h3>
+    
+    <!-- REAL TRADING INFO CARD (DIPERLIHATKAN SAAT MODE REAL) -->
+    <section id="real-trading-info-card" class="hidden glass-card rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 border-l-4 border-l-cyan-400 glow-cyan animate-in fade-in duration-200">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-main pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i>
           </div>
-          <p class="text-[11px] text-slate-400 mt-0.5">Live monitoring status wallet on-chain Solana dan eksekusi posisi real Meridian</p>
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <span id="real-card-engine-title">Real On-Chain Wallet Status</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono font-medium">LIVE ON-CHAIN GUARD</span>
+            </h3>
+            <p class="text-xs text-slate-400">Pemisahan data ketat: Akun Paper Simulation vs Akun Real Transaksi On-Chain.</p>
+          </div>
         </div>
-        <div class="text-[11px] font-mono bg-bg-main px-3 py-1.5 rounded-xl border border-border-main text-slate-300 break-all sm:break-normal">
-          Wallet: <span class="text-brand-sol font-semibold">9uNSXiB9...SBR</span>
+        <div class="flex items-center gap-2 font-mono text-xs">
+          <span class="px-2.5 py-1 rounded-lg bg-bg-main border border-border-main text-slate-300" id="real-card-mode-badge">
+            STATUS: <strong class="text-cyan-400">STANDBY_PAPER_ONLY</strong>
+          </span>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div class="bg-bg-main/70 p-3.5 rounded-xl border border-border-main space-y-1">
-          <span class="text-[10px] text-slate-400 uppercase font-mono">Status Bot Saat Ini</span>
-          <div class="text-xs sm:text-sm font-semibold text-emerald-400 flex items-center gap-1.5">
-            <i data-lucide="shield-check" class="w-4 h-4"></i> Paper Simulation Only
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono" id="real-wallets-container">
+        <!-- Solana Wallet Card -->
+        <div class="bg-bg-main/80 p-3.5 rounded-xl border border-border-main space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400 font-bold flex items-center gap-1.5"><span class="text-brand-sol">🪐</span> Solana Mainnet Wallet</span>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 text-[10px]">Verified Safe</span>
           </div>
-          <span class="text-[10px] text-slate-500 font-mono">Real private keys tidak pernah digunakan</span>
+          <div class="p-2 bg-bg-card rounded-lg border border-border-main text-slate-300 break-all select-all font-mono text-[11px]">
+            9uNSXiB9wN3uummTzkhoPpQBaMD35nVLeWVW3VDR6SBR
+          </div>
+          <div class="flex justify-between text-slate-400 pt-1">
+            <span>On-Chain Real Positions:</span>
+            <strong class="text-cyan-300" id="real-sol-pos-count">0 Positions</strong>
+          </div>
         </div>
 
-        <div class="bg-bg-main/70 p-3.5 rounded-xl border border-border-main space-y-1">
-          <span class="text-[10px] text-slate-400 uppercase font-mono">Posisi Real Terbuka On-Chain</span>
-          <div class="text-xl sm:text-2xl font-mono font-bold text-white" id="real-open-count">0</div>
-          <span class="text-[10px] text-slate-500 font-mono">Tidak ada posisi real yang aktif</span>
-        </div>
-
-        <div class="bg-bg-main/70 p-3.5 rounded-xl border border-border-main space-y-1">
-          <span class="text-[10px] text-slate-400 uppercase font-mono">Target Riset Penelitian</span>
-          <div class="text-xs sm:text-sm font-bold text-cyan-400 font-mono">39 / 100 Paper Samples</div>
-          <span class="text-[10px] text-slate-500 font-mono">Kumpulkan 100 sampel sebelum migrasi real</span>
+        <!-- Robinhood Chain Wallet Card -->
+        <div class="bg-bg-main/80 p-3.5 rounded-xl border border-border-main space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400 font-bold flex items-center gap-1.5"><span class="text-emerald-400">🏹</span> Robinhood Chain (Arbitrum Orbit 4663)</span>
+            <span class="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 text-[10px]">Standby L2</span>
+          </div>
+          <div class="p-2 bg-bg-card rounded-lg border border-border-main text-slate-300 break-all select-all font-mono text-[11px]">
+            Engine: /root/projects/meridian/tools/robinhood-clmm.js
+          </div>
+          <div class="flex justify-between text-slate-400 pt-1">
+            <span>On-Chain Real Positions:</span>
+            <strong class="text-cyan-300" id="real-rh-pos-count">0 Positions (Standby Paper)</strong>
+          </div>
         </div>
       </div>
     </section>
+
 
     <!-- TRADE HISTORY EXPLORER -->
     <section class="glass-card rounded-2xl p-3.5 sm:p-5 space-y-3 sm:space-y-4">
@@ -1563,6 +1698,995 @@
     }, 60000);
 
     document.addEventListener('DOMContentLoaded', () => {
+      fetchDashboardData(false);
+    });
+  </script>
+</body>
+</html<script>
+    let allData = null;
+    let currentEngine = 'meteora'; // 'meteora' | 'robinhood' | 'combined'
+    let currentTradingMode = 'paper'; // 'paper' | 'real'
+    let currentTimezone = 'WIB'; // 'WIB' | 'UTC'
+    let selectedMonth = null;
+    let selectedDateFilter = null;
+    let equityChartInstance = null;
+    let dailyPnlChartInstance = null;
+
+    // Detect initial engine route from URL pathname
+    function detectInitialEngine() {
+      const p = window.location.pathname.toLowerCase();
+      if (p.includes('robinhood')) return 'robinhood';
+      if (p.includes('combined')) return 'combined';
+      return 'meteora';
+    }
+
+    function toggleMobileMenu() {
+      const drawer = document.getElementById('mobile-drawer');
+      const icon = document.getElementById('hamburger-icon');
+      if (drawer.classList.contains('hidden')) {
+        drawer.classList.remove('hidden');
+        if (icon) icon.setAttribute('data-lucide', 'x');
+      } else {
+        drawer.classList.add('hidden');
+        if (icon) icon.setAttribute('data-lucide', 'menu');
+      }
+      lucide.createIcons();
+    }
+
+    function switchEngine(engine) {
+      if (!['meteora', 'robinhood', 'combined'].includes(engine)) return;
+      currentEngine = engine;
+      selectedDateFilter = null;
+      selectedMonth = null;
+
+      // Update URL without page reload
+      const newPath = engine === 'meteora' ? '/' : '/' + engine;
+      window.history.pushState({ engine }, '', newPath);
+
+      updateEngineTabsUI();
+      renderAll();
+    }
+
+    window.addEventListener('popstate', (event) => {
+      currentEngine = detectInitialEngine();
+      updateEngineTabsUI();
+      renderAll();
+    });
+
+    function updateEngineTabsUI() {
+      const engines = ['meteora', 'robinhood', 'combined'];
+      engines.forEach(eng => {
+        const btn = document.getElementById(`tab-engine-${eng}`);
+        const drawerBtn = document.getElementById(`drawer-tab-${eng}`);
+        const isActive = eng === currentEngine;
+
+        if (btn) {
+          if (isActive) {
+            btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-brand-purple/25 text-white border border-brand-purple/40 shadow-sm shadow-brand-purple/20';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200';
+          }
+        }
+
+        if (drawerBtn) {
+          if (isActive) {
+            drawerBtn.className = 'p-2 rounded-xl border border-brand-purple/40 bg-brand-purple/25 text-white text-[11px] font-semibold flex flex-col items-center justify-center gap-1 shadow-sm';
+          } else {
+            drawerBtn.className = 'p-2 rounded-xl border border-border-main bg-bg-main text-slate-400 text-[11px] font-semibold flex flex-col items-center justify-center gap-1';
+          }
+        }
+      });
+
+      // Update page title & export labels
+      const titleMap = {
+        meteora: 'Meridian DLMM Analytics • Meteora Solana',
+        robinhood: 'Meridian CLMM Analytics • Robinhood Chain',
+        combined: 'Meridian Multi-Chain LP Suite • Meteora + Robinhood'
+      };
+      const labelMap = {
+        meteora: 'Meteora',
+        robinhood: 'Robinhood',
+        combined: 'Combined'
+      };
+      document.title = titleMap[currentEngine] || 'Meridian LP Suite';
+      document.getElementById('page-title').textContent = titleMap[currentEngine] || 'Meridian LP Suite';
+      document.getElementById('export-engine-label-csv').textContent = labelMap[currentEngine];
+      document.getElementById('export-engine-label-json').textContent = labelMap[currentEngine];
+
+      // Show/hide combined strategy cards
+      const combinedCards = document.getElementById('combined-strategy-cards');
+      if (combinedCards) {
+        if (currentEngine === 'combined') combinedCards.classList.remove('hidden');
+        else combinedCards.classList.add('hidden');
+      }
+    }
+
+    function getActiveDataset() {
+      if (!allData) return { kpis: {}, pools: [], dailyPnl: {}, monthlyStats: [], equityGrowthSeries: [], trades: [] };
+      const engData = allData[currentEngine] || {};
+      return currentTradingMode === 'paper' ? (engData.paper || {}) : (engData.real || {});
+    }
+
+    async function fetchDashboardData(isManual = false) {
+      const refreshIcon = document.getElementById('refresh-icon');
+      if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+      try {
+        const response = await fetch('/api/all');
+        if (!response.ok) throw new Error('Network error fetching bundle data');
+        allData = await response.json();
+
+        updateEngineTabsUI();
+        renderAll();
+        if (isManual) {
+          showToast('Data 3 Dashboard (Meteora, Robinhood, Combined) tersinkron dari VPS!');
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+      }
+    }
+
+    function renderAll() {
+      if (!allData) return;
+
+      const activeData = getActiveDataset();
+      renderNavBadges();
+      renderBotInfo();
+      renderCombinedStrategyCards();
+      renderKPIs(activeData);
+      renderActivePosition(activeData);
+      renderMonthlyCalendar(activeData);
+      renderPoolsBreakdown(activeData);
+      renderCharts(activeData);
+      renderTradesTable(activeData);
+      lucide.createIcons();
+    }
+
+    function renderNavBadges() {
+      const mPaper = allData.meteora?.paper?.trades?.length || 0;
+      const rPaper = allData.robinhood?.paper?.trades?.length || 0;
+      const cPaper = allData.combined?.paper?.trades?.length || 0;
+
+      const mReal = allData.meteora?.real?.trades?.length || 0;
+      const rReal = allData.robinhood?.real?.trades?.length || 0;
+      const cReal = allData.combined?.real?.trades?.length || 0;
+
+      // Badges on Engine tabs
+      document.getElementById('badge-meteora-count').textContent = currentTradingMode === 'paper' ? mPaper : mReal;
+      document.getElementById('badge-robinhood-count').textContent = currentTradingMode === 'paper' ? rPaper : rReal;
+      document.getElementById('badge-combined-count').textContent = currentTradingMode === 'paper' ? cPaper : cReal;
+
+      document.getElementById('drawer-meteora-count').textContent = currentTradingMode === 'paper' ? mPaper : mReal;
+      document.getElementById('drawer-robinhood-count').textContent = currentTradingMode === 'paper' ? rPaper : rReal;
+      document.getElementById('drawer-combined-count').textContent = currentTradingMode === 'paper' ? cPaper : cReal;
+
+      // Paper vs Real counts for active engine
+      const activeEng = allData[currentEngine] || {};
+      const activePaperCount = activeEng.paper?.trades?.length || 0;
+      const activeRealCount = activeEng.real?.trades?.length || 0;
+
+      document.getElementById('nav-paper-count').textContent = activePaperCount;
+      document.getElementById('nav-real-count').textContent = activeRealCount;
+      document.getElementById('drawer-paper-count').textContent = activePaperCount;
+      document.getElementById('drawer-real-count').textContent = activeRealCount;
+    }
+
+    function renderBotInfo() {
+      const activeEng = allData[currentEngine] || {};
+      const bot = activeEng.botInfo || {};
+      const activeData = getActiveDataset();
+      const kpis = activeData.kpis || {};
+
+      const titleEl = document.querySelector('h2.font-bold.text-white');
+      const badge = document.getElementById('banner-mode-badge');
+      const subtitle = document.getElementById('banner-subtitle');
+
+      if (currentEngine === 'robinhood') {
+        if (titleEl) titleEl.textContent = 'Agus Profit (Robinhood Chain CLMM)';
+        if (currentTradingMode === 'paper') {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Paper (Arbitrum Orbit L2)';
+          subtitle.innerHTML = `Jadwal: <span class="font-mono text-slate-300">6x Sehari (Setiap 4 Jam)</span> • Compounding Sizing: <span class="font-mono text-emerald-400 font-semibold">$${(kpis.currentCompoundingSize || 60.0).toFixed(2)}</span> • Defensive: Hard -4%, Soft -3%, TP +3%`;
+        } else {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center gap-1';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> Standby Safe L2';
+          subtitle.innerHTML = `Network: <span class="font-mono text-slate-300">Robinhood Chain (4663)</span> • Posisi Real: <span class="font-mono text-cyan-300 font-semibold">0 Real Trades</span>`;
+        }
+      } else if (currentEngine === 'combined') {
+        if (titleEl) titleEl.textContent = 'Agus Profit Multi-Chain LP Suite (Meteora + Robinhood)';
+        if (currentTradingMode === 'paper') {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-gradient-to-r from-brand-purple/20 to-emerald-500/20 text-purple-200 border border-brand-purple/40 flex items-center gap-1';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-brand-purple animate-ping"></span> Dual-Bot Multi-Chain Paper';
+          subtitle.innerHTML = `Portfolio Modal: <span class="font-mono text-white font-bold">$120.00 Base</span> • Sizing Gabungan: <span class="font-mono text-brand-sol font-semibold">$${(kpis.currentCompoundingSize || 175.14).toFixed(2)}</span> • Solana + Arbitrum Orbit`;
+        } else {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center gap-1';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> Multi-Chain Real Standby';
+          subtitle.innerHTML = `Wallets: <span class="font-mono text-slate-300">Solana + EVM</span> • Mode: <span class="font-mono text-cyan-300 font-semibold">Standby Paper Active</span>`;
+        }
+      } else {
+        if (titleEl) titleEl.textContent = 'Agus Profit (Meteora DLMM / Meridian)';
+        if (currentTradingMode === 'paper') {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Paper (Solana DLMM 6x/day)';
+          subtitle.innerHTML = `Jadwal: <span class="font-mono text-slate-300">Setiap 4 Jam (03:00..23:00 WIB)</span> • Compounding Sizing: <span class="font-mono text-brand-sol font-semibold">$${(kpis.currentCompoundingSize || 115.14).toFixed(2)}</span>`;
+        } else {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center gap-1';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> Real Standby (On-Chain Safe)';
+          subtitle.innerHTML = `Wallet: <span class="font-mono text-slate-300">9uNSXiB9...SBR</span> • Posisi Real: <span class="font-mono text-cyan-300 font-semibold">0 Real Trades</span>`;
+        }
+      }
+
+      const lastRunEl = document.getElementById('cron-last-run');
+      if (lastRunEl && bot.lastRunAtUtc) {
+        lastRunEl.textContent = formatDateTimeShort(bot.lastRunAtUtc);
+      } else if (lastRunEl) {
+        lastRunEl.textContent = currentEngine === 'robinhood' ? 'Baru Dikonfigurasi' : 'Tersinkron';
+      }
+
+      const nextRunEl = document.getElementById('cron-next-run');
+      if (nextRunEl && bot.nextRunAtUtc) {
+        nextRunEl.textContent = formatDateTimeShort(bot.nextRunAtUtc);
+      }
+
+      const runsDoneEl = document.getElementById('cron-runs-done');
+      if (runsDoneEl) runsDoneEl.textContent = bot.runsCompleted || (currentEngine === 'combined' ? bot.totalRunsCompleted || '458' : '458');
+    }
+
+    function renderCombinedStrategyCards() {
+      if (currentEngine !== 'combined' || !allData) return;
+
+      const mData = currentTradingMode === 'paper' ? allData.meteora?.paper : allData.meteora?.real;
+      const rData = currentTradingMode === 'paper' ? allData.robinhood?.paper : allData.robinhood?.real;
+
+      const mKpi = mData?.kpis || {};
+      const rKpi = rData?.kpis || {};
+
+      document.getElementById('card-m-base').textContent = `$${(mKpi.baseCapitalUsd || 0).toFixed(2)}`;
+      document.getElementById('card-m-pnl').textContent = `${(mKpi.realizedPnlUsd || 0) >= 0 ? '+' : ''}$${(mKpi.realizedPnlUsd || 0).toFixed(2)}`;
+      document.getElementById('card-m-winrate').textContent = `${mKpi.winRatePct || 0}%`;
+      document.getElementById('card-m-trades').textContent = mKpi.totalTrades || 0;
+
+      document.getElementById('card-r-base').textContent = `$${(rKpi.baseCapitalUsd || 0).toFixed(2)}`;
+      document.getElementById('card-r-pnl').textContent = `${(rKpi.realizedPnlUsd || 0) >= 0 ? '+' : ''}$${(rKpi.realizedPnlUsd || 0).toFixed(2)}`;
+      document.getElementById('card-r-winrate').textContent = `${rKpi.winRatePct || 0}%`;
+      document.getElementById('card-r-trades').textContent = rKpi.totalTrades || 0;
+    }
+
+    function renderKPIs(activeData) {
+      const k = activeData.kpis || {};
+      const isPaper = currentTradingMode === 'paper';
+
+      document.getElementById('kpi-equity-label').textContent = isPaper ? 'Total Paper Equity' : 'Real On-Chain Equity';
+      document.getElementById('kpi-equity').textContent = `$${(k.totalEquityUsd || 0).toFixed(2)}`;
+
+      const roiEl = document.getElementById('kpi-roi');
+      roiEl.textContent = `${k.roiPct >= 0 ? '+' : ''}${(k.roiPct || 0).toFixed(2)}% ROI`;
+      roiEl.className = `text-[11px] sm:text-xs font-mono font-semibold px-2 py-0.5 rounded-md ${k.roiPct > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}`;
+
+      document.getElementById('kpi-base-val').textContent = `$${(k.baseCapitalUsd || 0).toFixed(2)}`;
+      document.getElementById('kpi-open-sub').textContent = `${(k.openPnlUsd || 0) >= 0 ? '+' : ''}$${(k.openPnlUsd || 0).toFixed(2)}`;
+
+      const realPnlEl = document.getElementById('kpi-realized-pnl');
+      realPnlEl.textContent = `${k.realizedPnlUsd >= 0 ? '+' : ''}$${(k.realizedPnlUsd || 0).toFixed(2)}`;
+      realPnlEl.className = `text-lg sm:text-2xl font-bold font-mono ${k.realizedPnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      document.getElementById('kpi-winrate').textContent = `${k.winRatePct || 0}%`;
+      document.getElementById('kpi-winrate-bar').style.width = `${Math.min(100, Math.max(0, k.winRatePct || 0))}%`;
+      document.getElementById('kpi-lossrate-bar').style.width = `${Math.min(100, Math.max(0, 100 - (k.winRatePct || 0)))}%`;
+      document.getElementById('kpi-wins-count').textContent = k.wins || 0;
+      document.getElementById('kpi-losses-count').textContent = k.losses || 0;
+
+      document.getElementById('kpi-profit-factor').textContent = `${k.profitFactor || 0}x`;
+      document.getElementById('kpi-total-gain').textContent = `+$${(k.totalGainUsd || 0).toFixed(2)}`;
+      document.getElementById('kpi-total-loss').textContent = `-$${(k.totalLossUsd || 0).toFixed(2)}`;
+
+      document.getElementById('kpi-total-fees').textContent = `+$${(k.totalFeesUsd || 0).toFixed(2)}`;
+      document.getElementById('kpi-volume').textContent = `$${formatCompactNumber(k.totalVolumeUsd || 0)}`;
+
+      document.getElementById('kpi-open-trades-count').textContent = `${k.openTrades || 0} Open`;
+      document.getElementById('kpi-closed-trades-count').textContent = `${k.closedTrades || 0} Selesai`;
+      document.getElementById('kpi-open-pnl').textContent = `${(k.openPnlUsd || 0) >= 0 ? '+' : ''}$${(k.openPnlUsd || 0).toFixed(2)}`;
+      document.getElementById('kpi-open-pnl').className = `text-xs font-mono font-semibold ${(k.openPnlUsd || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+    }
+
+    function formatCompactNumber(num) {
+      if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+      if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+      if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+      return num.toFixed(2);
+    }
+
+    function renderActivePosition(activeData) {
+      const container = document.getElementById('active-position-container');
+      const openTrades = (activeData.trades || []).filter(t => t.status && t.status.includes('OPEN'));
+
+      if (openTrades.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = openTrades.map(pos => {
+        const isRobinhood = pos.engine === 'robinhood';
+        const livePriceStr = pos.currentPrice ? `$${pos.currentPrice > 0.01 ? pos.currentPrice.toFixed(4) : pos.currentPrice.toFixed(6)}` : '-';
+        const entryPriceStr = pos.entryPrice ? `$${pos.entryPrice > 0.01 ? pos.entryPrice.toFixed(4) : pos.entryPrice.toFixed(6)}` : '-';
+        const inRange = pos.bins ? pos.bins.inRange : true;
+
+        const boundsStr = isRobinhood
+          ? `[$${(pos.bins?.lowerPrice || 0).toFixed(6)} - $${(pos.bins?.upperPrice || 0).toFixed(6)}]`
+          : `Bin ${pos.bins?.lowerBin}..${pos.bins?.upperBin}`;
+
+        return `
+          <div class="glass-card rounded-2xl p-4 sm:p-5 border-l-4 ${isRobinhood ? 'border-l-emerald-400' : 'border-l-brand-sol'} glow-emerald space-y-3">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+              <div class="flex items-center gap-2.5 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${isRobinhood ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-brand-purple/15 border-brand-purple/30 text-brand-sol'} border flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0">
+                  ${isRobinhood ? '🏹 RH' : pos.poolName.split('-')[0]}
+                </div>
+                <div>
+                  <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                      ACTIVE POSITION ${pos.id} (${currentTradingMode.toUpperCase()})
+                    </span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono font-semibold flex items-center gap-1">
+                      <i data-lucide="zap" class="w-3 h-3 text-cyan-400"></i> ${isRobinhood ? 'DEXScreener Live Quote' : 'Live On-Chain Quote'}
+                    </span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-purple/15 text-purple-200 border border-brand-purple/30 font-mono">
+                      ${pos.engineLabel || 'Meteora DLMM'} • ${pos.chain || 'Solana'}
+                    </span>
+                  </div>
+                  <h3 class="text-sm sm:text-base font-bold text-white mt-1">${pos.poolName} • Modal: <strong class="${isRobinhood ? 'text-emerald-400' : 'text-brand-sol'} font-mono">$${pos.capitalUsd.toFixed(2)}</strong></h3>
+                  <p class="text-[11px] text-slate-400 font-mono">
+                    Dibuka: ${pos.entryDateInfo?.wibString || pos.openedAt || ''} • Durasi: <strong class="text-slate-200">${pos.holdingHours} Jam</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 sm:flex items-center gap-3 sm:gap-6 font-mono text-xs border-t sm:border-t-0 border-border-main pt-2 sm:pt-0">
+                <div>
+                  <span class="text-slate-500 block text-[9px] uppercase">Live Unrealized</span>
+                  <span class="text-sm sm:text-lg font-bold ${pos.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                    ${pos.pnlUsd >= 0 ? '+' : ''}$${pos.pnlUsd.toFixed(2)} (${pos.pnlPct >= 0 ? '+' : ''}${pos.pnlPct.toFixed(2)}%)
+                  </span>
+                </div>
+                <div>
+                  <span class="text-slate-500 block text-[9px] uppercase">Harga Live</span>
+                  <span class="text-sm sm:text-base font-semibold text-slate-200">${livePriceStr}</span>
+                  <span class="text-[9px] text-slate-500 block font-mono">Entry: ${entryPriceStr}</span>
+                </div>
+                <div class="text-right sm:text-left">
+                  <span class="text-slate-500 block text-[9px] uppercase">${isRobinhood ? 'Status Range' : 'Active Bin'}</span>
+                  <span class="text-sm sm:text-base font-bold ${inRange ? 'text-emerald-400' : 'text-rose-400'}">
+                    ${isRobinhood ? (inRange ? 'IN RANGE' : 'OUT OF RANGE') : (pos.bins?.closeActiveBin ?? pos.bins?.entryActiveBin)}
+                  </span>
+                  <span class="text-[9px] ${inRange ? 'text-emerald-400' : 'text-rose-400'} block font-mono font-semibold">
+                    ${inRange ? 'Defenses OK' : 'DEFENSIVE REVIEW'}
+                  </span>
+                </div>
+              </div>
+
+              <button onclick="openTradeModal('${pos.id}')" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold transition text-center flex items-center justify-center gap-1.5">
+                <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+                <span>Audit & Checks</span>
+              </button>
+            </div>
+
+            <div class="bg-bg-main/60 p-2.5 rounded-xl border border-border-main/60 flex items-center justify-between text-[11px] font-mono text-slate-400 flex-wrap gap-2">
+              <div class="flex items-center gap-2">
+                <i data-lucide="radio" class="w-3.5 h-3.5 text-brand-sol animate-pulse"></i>
+                <span>Live Quote Sync: <strong>${pos.poolName}</strong> • Accrued Fees: <strong class="text-amber-400">+$${pos.feeUsd.toFixed(4)}</strong></span>
+              </div>
+              <div class="text-slate-500">
+                Range Bounds: <strong class="text-slate-300">${boundsStr}</strong>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMonthlyCalendar(activeData) {
+      const dailyMap = activeData.dailyPnl || {};
+      const monthlyStats = activeData.monthlyStats || [];
+      const selectEl = document.getElementById('calendar-month-select');
+
+      if (monthlyStats.length === 0) {
+        selectEl.innerHTML = `<option value="none">Belum Ada Transaksi</option>`;
+        document.getElementById('month-summary-bar').innerHTML = `
+          <div class="col-span-2 sm:col-span-4 text-center py-2 text-slate-500 font-sans text-xs">
+            Tidak ada data transaksi pada mode ${currentTradingMode === 'paper' ? 'Paper' : 'Real'}.
+          </div>
+        `;
+        document.getElementById('calendar-grid').innerHTML = `
+          <div class="col-span-7 text-center py-6 text-slate-500 font-sans text-xs bg-bg-main/40 rounded-xl border border-border-main/50">
+            Belum ada rekam transaksi ${currentTradingMode === 'paper' ? 'Paper' : 'Real'} yang tercatat.
+          </div>
+        `;
+        document.getElementById('btn-clear-date-filter').classList.add('hidden');
+        return;
+      }
+
+      const monthsAvailable = monthlyStats.map(m => m.month);
+      if (!selectedMonth || !monthsAvailable.includes(selectedMonth)) {
+        selectedMonth = monthsAvailable[0];
+      }
+
+      selectEl.innerHTML = monthsAvailable.map(m => {
+        const [y, mo] = m.split('-');
+        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const name = `${monthNames[parseInt(mo, 10) - 1]} ${y}`;
+        return `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${name}</option>`;
+      }).join('');
+
+      const currentMonthData = monthlyStats.find(m => m.month === selectedMonth) || {
+        pnlUsd: 0, tradeCount: 0, winCount: 0, lossCount: 0, greenDaysCount: 0, redDaysCount: 0
+      };
+
+      const summaryBar = document.getElementById('month-summary-bar');
+      summaryBar.innerHTML = `
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Total Month PnL</span>
+          <span class="text-xs sm:text-sm font-bold ${currentMonthData.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+            ${currentMonthData.pnlUsd >= 0 ? '+' : ''}$${currentMonthData.pnlUsd.toFixed(2)}
+          </span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Win vs Loss</span>
+          <span class="text-xs sm:text-sm font-semibold text-slate-200">
+            <strong class="text-emerald-400">${currentMonthData.greenDaysCount || 0}H</strong> / <strong class="text-rose-400">${currentMonthData.redDaysCount || 0}M</strong>
+          </span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Month Trades</span>
+          <span class="text-xs sm:text-sm font-semibold text-slate-200">${currentMonthData.tradeCount || 0} Trades</span>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-[9px] uppercase">Best Day</span>
+          <span class="text-xs sm:text-sm font-bold text-emerald-400">
+            ${currentMonthData.bestDayPnl > -Infinity ? '+$' + currentMonthData.bestDayPnl.toFixed(2) : '-'}
+          </span>
+        </div>
+      `;
+
+      renderCalendarGrid(selectedMonth, dailyMap);
+    }
+
+    function renderCalendarGrid(monthStr, dailyMap) {
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      const [y, m] = monthStr.split('-').map(v => parseInt(v, 10));
+      const daysInMonth = new Date(y, m, 0).getDate();
+      const firstDayIndex = (new Date(y, m - 1, 1).getDay() + 6) % 7; // Monday = 0
+
+      for (let i = 0; i < firstDayIndex; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'aspect-square rounded-xl bg-bg-main/20 border border-transparent opacity-30';
+        grid.appendChild(emptyCell);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = String(day).padStart(2, '0');
+        const dateKey = `${monthStr}-${dayStr}`;
+        const dayData = dailyMap[dateKey];
+
+        const cell = document.createElement('div');
+        const isSelected = selectedDateFilter === dateKey;
+
+        let bgClass = 'bg-bg-main/60 hover:bg-bg-hover border-border-main/50 text-slate-400';
+        let pnlText = '';
+        let badgeCount = '';
+
+        if (dayData && dayData.tradeCount > 0) {
+          badgeCount = `<span class="text-[9px] px-1 py-0.2 rounded bg-bg-card border border-border-main font-mono text-slate-400">${dayData.tradeCount}</span>`;
+          if (dayData.pnlUsd > 0) {
+            bgClass = isSelected
+              ? 'bg-emerald-500/30 border-emerald-400 text-white glow-emerald shadow-lg'
+              : 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-300';
+            pnlText = `<span class="text-[10px] sm:text-xs font-mono font-bold text-emerald-400 truncate">+$${dayData.pnlUsd.toFixed(1)}</span>`;
+          } else if (dayData.pnlUsd < 0) {
+            bgClass = isSelected
+              ? 'bg-rose-500/30 border-rose-400 text-white shadow-lg'
+              : 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 text-rose-300';
+            pnlText = `<span class="text-[10px] sm:text-xs font-mono font-bold text-rose-400 truncate">-$${Math.abs(dayData.pnlUsd).toFixed(1)}</span>`;
+          } else {
+            bgClass = isSelected
+              ? 'bg-slate-800 border-slate-400 text-white'
+              : 'bg-bg-card hover:bg-bg-hover border-border-main text-slate-300';
+            pnlText = `<span class="text-[10px] font-mono text-slate-400">$0.0</span>`;
+          }
+        }
+
+        cell.className = `aspect-square rounded-xl p-1 sm:p-2 border transition cursor-pointer flex flex-col justify-between ${bgClass}`;
+        cell.onclick = () => filterByDate(dateKey);
+
+        cell.innerHTML = `
+          <div class="flex items-center justify-between w-full">
+            <span class="text-[10px] sm:text-xs font-bold ${isSelected ? 'text-white' : ''}">${day}</span>
+            ${badgeCount}
+          </div>
+          <div class="mt-auto text-right">
+            ${pnlText}
+          </div>
+        `;
+
+        grid.appendChild(cell);
+      }
+
+      const btnClear = document.getElementById('btn-clear-date-filter');
+      if (selectedDateFilter) {
+        btnClear.classList.remove('hidden');
+        btnClear.textContent = `Hapus Filter Tanggal (${selectedDateFilter})`;
+      } else {
+        btnClear.classList.add('hidden');
+      }
+    }
+
+    function onMonthChange(monthStr) {
+      selectedMonth = monthStr;
+      selectedDateFilter = null;
+      renderMonthlyCalendar(getActiveDataset());
+      renderTradesTable(getActiveDataset());
+    }
+
+    function filterByDate(dateKey) {
+      if (selectedDateFilter === dateKey) {
+        selectedDateFilter = null;
+      } else {
+        selectedDateFilter = dateKey;
+      }
+      renderMonthlyCalendar(getActiveDataset());
+      renderTradesTable(getActiveDataset());
+    }
+
+    function clearDateFilter() {
+      selectedDateFilter = null;
+      renderMonthlyCalendar(getActiveDataset());
+      renderTradesTable(getActiveDataset());
+    }
+
+    function renderPoolsBreakdown(activeData) {
+      const pools = activeData.pools || [];
+      const container = document.getElementById('pools-list');
+      document.getElementById('pools-count-badge').textContent = `${pools.length} Pools`;
+
+      if (pools.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 sm:p-6 text-center text-slate-500 font-sans text-xs bg-bg-main/50 rounded-xl border border-border-main">
+            Belum ada pool yang diperdagangkan pada mode ${currentTradingMode === 'paper' ? 'Paper' : 'Real'}.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = pools.map(p => {
+        const pnlColor = p.totalPnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        return `
+          <div onclick="filterByPoolCard('${p.name}')" class="bg-bg-main/80 hover:bg-bg-hover p-2.5 sm:p-3.5 rounded-xl border border-border-main transition cursor-pointer space-y-1.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-white text-xs font-mono">${p.name}</span>
+                <span class="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-bg-card border border-border-main text-slate-400 font-mono">${p.totalTrades} trades</span>
+              </div>
+              <div class="text-right">
+                <span class="font-bold text-xs font-mono ${pnlColor}">
+                  ${p.totalPnlUsd >= 0 ? '+' : ''}$${p.totalPnlUsd.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1 text-[10px] sm:text-[11px] font-mono text-slate-400 border-t border-border-main/60 pt-1.5">
+              <div>Win: <strong class="text-white">${p.winRatePct}%</strong></div>
+              <div>Fees: <strong class="text-amber-400">+$${p.totalFeesUsd.toFixed(2)}</strong></div>
+              <div>Hold: <strong class="text-slate-300">${p.avgDurationHours}h</strong></div>
+            </div>
+
+            <div class="w-full bg-bg-card h-1 rounded-full overflow-hidden">
+              <div class="bg-gradient-to-r from-cyan-500 to-brand-sol h-full" style="width: ${Math.min(100, Math.max(10, p.winRatePct))}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function filterByPoolCard(poolName) {
+      document.getElementById('filter-pool').value = poolName;
+      applyTradeFilters();
+    }
+
+    function renderCharts(activeData) {
+      const growthSeries = activeData.equityGrowthSeries || [];
+      const dailyMap = activeData.dailyPnl || {};
+      const kpis = activeData.kpis || {};
+
+      document.getElementById('chart-equity-tag').textContent = `$${(kpis.totalEquityUsd || 0).toFixed(2)}`;
+      document.getElementById('chart-equity-sub').textContent = currentTradingMode === 'paper' 
+        ? `Pertumbuhan modal dari $${(kpis.baseCapitalUsd || 60).toFixed(2)} base capital`
+        : 'Performa real on-chain trading';
+
+      const equityCtx = document.getElementById('equityChart').getContext('2d');
+      if (equityChartInstance) equityChartInstance.destroy();
+
+      const labels = growthSeries.length > 0 ? growthSeries.map(s => s.tradeId.replace('trade_', '#').replace('rh_trade_c_', '#RH')) : ['Start'];
+      const dataPoints = growthSeries.length > 0 ? growthSeries.map(s => s.equity) : [kpis.baseCapitalUsd || 0];
+
+      equityChartInstance = new Chart(equityCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Equity ($)',
+            data: dataPoints,
+            borderColor: currentTradingMode === 'paper' ? '#10B981' : '#06B6D4',
+            backgroundColor: currentTradingMode === 'paper' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(6, 182, 212, 0.08)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointBackgroundColor: currentTradingMode === 'paper' ? '#10B981' : '#06B6D4',
+            pointBorderColor: '#080B10',
+            pointRadius: 2.5,
+            pointHoverRadius: 5,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `Equity: $${ctx.parsed.y.toFixed(2)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255,255,255,0.03)' },
+              ticks: { color: '#64748B', font: { family: 'Geist Mono', size: 9 }, maxTicksLimit: 8 }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: {
+                color: '#64748B',
+                font: { family: 'Geist Mono', size: 9 },
+                callback: (val) => `$${val}`
+              }
+            }
+          }
+        }
+      });
+
+      const dailyCtx = document.getElementById('dailyPnlChart').getContext('2d');
+      if (dailyPnlChartInstance) dailyPnlChartInstance.destroy();
+
+      const sortedDates = Object.keys(dailyMap).sort().slice(-14);
+      const barLabels = sortedDates.length > 0 ? sortedDates.map(d => d.slice(5)) : ['No Data'];
+      const barValues = sortedDates.length > 0 ? sortedDates.map(d => dailyMap[d].pnlUsd) : [0];
+      const barColors = barValues.map(v => v >= 0 ? '#10B981' : '#F43F5E');
+
+      dailyPnlChartInstance = new Chart(dailyCtx, {
+        type: 'bar',
+        data: {
+          labels: barLabels,
+          datasets: [{
+            data: barValues,
+            backgroundColor: barColors,
+            borderRadius: 3,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `PnL: $${ctx.parsed.y.toFixed(2)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#64748B', font: { family: 'Geist Mono', size: 9 }, maxTicksLimit: 7 }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: {
+                color: '#64748B',
+                font: { family: 'Geist Mono', size: 9 },
+                callback: (val) => `$${val}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTradesTable(activeData) {
+      const allTrades = activeData.trades || [];
+      const isPaper = currentTradingMode === 'paper';
+
+      const poolFilterEl = document.getElementById('filter-pool');
+      const uniquePools = Array.from(new Set(allTrades.map(t => t.poolName))).filter(Boolean);
+      poolFilterEl.innerHTML = `<option value="ALL">Semua Pool</option>` + uniquePools.map(p => `<option value="${p}">${p}</option>`).join('');
+
+      const poolFilter = poolFilterEl.value;
+      const statusFilter = document.getElementById('filter-status').value;
+      const searchFilter = document.getElementById('filter-search').value.toLowerCase().trim();
+
+      const filtered = allTrades.filter(t => {
+        if (poolFilter !== 'ALL' && t.poolName !== poolFilter) return false;
+        if (statusFilter === 'OPEN' && !t.status.includes('OPEN')) return false;
+        if (statusFilter === 'CLOSED' && !t.status.includes('CLOSED')) return false;
+        if (statusFilter === 'WIN' && t.pnlUsd < 0) return false;
+        if (statusFilter === 'LOSS' && t.pnlUsd >= 0) return false;
+
+        if (selectedDateFilter) {
+          const tradeDate = t.tradeDateInfo?.wibDate || t.entryDateInfo?.wibDate;
+          if (tradeDate !== selectedDateFilter) return false;
+        }
+
+        if (searchFilter) {
+          const matchPool = t.poolName.toLowerCase().includes(searchFilter);
+          const matchReason = (t.exitReason || '').toLowerCase().includes(searchFilter);
+          const matchId = t.id.toLowerCase().includes(searchFilter);
+          if (!matchPool && !matchReason && !matchId) return false;
+        }
+
+        return true;
+      });
+
+      document.getElementById('table-trades-count').textContent = `${filtered.length} Trades`;
+      document.getElementById('table-showing-info').textContent = `Menampilkan ${filtered.length} dari ${allTrades.length} trade${selectedDateFilter ? ` (Filter: ${selectedDateFilter})` : ''}`;
+
+      const tbody = document.getElementById('trades-table-body');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="12" class="py-6 text-center text-slate-500 font-sans text-xs">
+              Tidak ada data transaksi yang cocok dengan filter yang dipilih.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(t => {
+        const isClosed = t.status.includes('CLOSED');
+        const isWin = t.pnlUsd >= 0;
+        const pnlColor = isWin ? 'text-emerald-400' : 'text-rose-400';
+        const dateStr = currentTimezone === 'WIB' 
+          ? (t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString || '-')
+          : (t.tradeDateInfo?.iso?.slice(0, 16).replace('T', ' ') || '-');
+
+        const isRh = t.engine === 'robinhood';
+        const engineBadge = isRh
+          ? '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">🏹 RH (4663)</span>'
+          : '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-brand-purple/15 text-purple-300 border border-brand-purple/30">🪐 Meteora</span>';
+
+        const rangeStr = isRh
+          ? `$${(t.bins?.lowerPrice || 0).toFixed(5)}..$${(t.bins?.upperPrice || 0).toFixed(5)}`
+          : `${t.bins?.lowerBin ?? '-'}..${t.bins?.upperBin ?? '-'}`;
+
+        return `
+          <tr onclick="openTradeModal('${t.id}')" class="hover:bg-bg-hover/80 transition cursor-pointer group">
+            <td class="py-2.5 px-3 font-semibold text-slate-400 group-hover:text-white">${t.id}</td>
+            <td class="py-2.5 px-3 whitespace-nowrap">${engineBadge}</td>
+            <td class="py-2.5 px-3 text-slate-300 whitespace-nowrap">${dateStr}</td>
+            <td class="py-2.5 px-3 font-bold text-white">${t.poolName}</td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isClosed ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">
+                ${t.status.replace('_PAPER', '').replace('_REAL', '')}
+              </span>
+            </td>
+            <td class="py-2.5 px-3 text-right text-slate-200">$${t.capitalUsd.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-right font-bold ${pnlColor}">${isWin ? '+' : ''}$${t.pnlUsd.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-right font-semibold ${pnlColor}">${isWin ? '+' : ''}${t.pnlPct.toFixed(2)}%</td>
+            <td class="py-2.5 px-3 text-right text-slate-400">${t.holdingHours > 0 ? t.holdingHours + 'h' : '-'}</td>
+            <td class="py-2.5 px-3 text-slate-400 text-[10px] font-mono">${rangeStr}</td>
+            <td class="py-2.5 px-3 text-slate-400 truncate max-w-xs" title="${t.exitReason}">${t.exitReason}</td>
+            <td class="py-2.5 px-3 text-center">
+              <button class="px-2 py-1 rounded bg-bg-card group-hover:bg-brand-purple/20 text-slate-400 group-hover:text-purple-300 transition text-[10px]">
+                Detail
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function applyTradeFilters() {
+      renderTradesTable(getActiveDataset());
+    }
+
+    function openTradeModal(tradeId) {
+      const activeData = getActiveDataset();
+      const trade = activeData.trades?.find(t => t.id === tradeId);
+      if (!trade) return;
+
+      const isRh = trade.engine === 'robinhood';
+
+      document.getElementById('modal-trade-title').textContent = `${trade.poolName} (${trade.engineLabel || 'Trade'}) • ${currentTradingMode.toUpperCase()}`;
+      document.getElementById('modal-trade-subtitle').textContent = `ID: ${trade.id} • Address: ${trade.poolAddress || '-'}`;
+
+      const badge = document.getElementById('modal-trade-status-badge');
+      badge.textContent = trade.status;
+      badge.className = `text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-medium ${trade.status.includes('OPEN') ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 border border-slate-700'}`;
+
+      const pnlEl = document.getElementById('modal-pnl-usd');
+      pnlEl.textContent = `${trade.pnlUsd >= 0 ? '+' : ''}$${trade.pnlUsd.toFixed(2)}`;
+      pnlEl.className = `text-sm sm:text-base font-bold ${trade.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      document.getElementById('modal-pnl-pct').textContent = `(${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%)`;
+      document.getElementById('modal-capital').textContent = `$${trade.capitalUsd.toFixed(2)}`;
+      document.getElementById('modal-fee').textContent = `+$${trade.feeUsd.toFixed(4)}`;
+      document.getElementById('modal-duration').textContent = `${trade.holdingHours} Jam`;
+
+      if (isRh) {
+        document.getElementById('modal-bin-lower').textContent = `$${(trade.bins?.lowerPrice || 0).toFixed(6)}`;
+        document.getElementById('modal-bin-entry').textContent = `$${(trade.entryPrice || 0).toFixed(6)}`;
+        document.getElementById('modal-bin-upper').textContent = `$${(trade.bins?.upperPrice || 0).toFixed(6)}`;
+        document.getElementById('modal-bin-close').textContent = trade.currentPrice ? `Price: $${trade.currentPrice.toFixed(6)}` : '-';
+        document.getElementById('modal-bin-step').textContent = `Range ±${trade.bins?.rangePct || 15}%`;
+      } else {
+        document.getElementById('modal-bin-lower').textContent = trade.bins?.lowerBin ?? '-';
+        document.getElementById('modal-bin-entry').textContent = trade.bins?.entryActiveBin ?? '-';
+        document.getElementById('modal-bin-upper').textContent = trade.bins?.upperBin ?? '-';
+        document.getElementById('modal-bin-close').textContent = `Exit Bin: ${trade.bins?.closeActiveBin ?? '-'}`;
+        document.getElementById('modal-bin-step').textContent = `Bin Step: ${trade.bins?.binStepBps || 20} bps`;
+      }
+
+      document.getElementById('modal-base-dlmm').textContent = `${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%`;
+      document.getElementById('modal-base-5050').textContent = trade.baselines ? `${trade.baselines.baseline5050Pct >= 0 ? '+' : ''}${trade.baselines.baseline5050Pct.toFixed(2)}%` : '-';
+      document.getElementById('modal-base-volatile').textContent = trade.baselines ? `${trade.baselines.baselineVolatilePct >= 0 ? '+' : ''}${trade.baselines.baselineVolatilePct.toFixed(2)}%` : '-';
+
+      document.getElementById('modal-exit-reason').textContent = trade.exitReason || 'No details';
+
+      const checks = trade.monitorChecks || [];
+      const tbody = document.getElementById('modal-checks-tbody');
+      let liveRowHtml = '';
+
+      if (trade.isLiveRealtime && trade.liveQuote) {
+        const lq = trade.liveQuote;
+        const livePnlColor = trade.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        liveRowHtml = `
+          <tr class="bg-emerald-500/10 border-b border-emerald-500/30">
+            <td class="p-2 text-emerald-400 font-bold flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Live Real-Time
+            </td>
+            <td class="p-2 font-bold text-white">${isRh ? (trade.bins?.inRange ? 'IN RANGE' : 'OUT') : (lq.activeBin ?? '-')}</td>
+            <td class="p-2 font-semibold text-slate-200">${lq.price ? '$' + Number(lq.price).toFixed(4) : '-'}</td>
+            <td class="p-2 text-right text-amber-400">${lq.feeActiveTvlRatioPct ? lq.feeActiveTvlRatioPct.toFixed(3) + '%' : '-'}</td>
+            <td class="p-2 text-right font-bold ${livePnlColor}">${trade.pnlUsd >= 0 ? '+' : ''}$${trade.pnlUsd.toFixed(2)}</td>
+            <td class="p-2 text-emerald-300 truncate max-w-xs font-semibold">⚡ Quote Real-Time ${isRh ? 'DEXScreener' : 'Pool DLMM'}</td>
+          </tr>
+        `;
+      }
+
+      document.getElementById('modal-checks-count').textContent = checks.length + (trade.isLiveRealtime ? ' (Live + ' + checks.length + ' Cron Logs)' : '');
+
+      if (checks.length === 0 && !liveRowHtml) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-500">Tidak ada data monitor checks berkala tercatat.</td></tr>`;
+      } else {
+        const checksHtml = checks.map((c) => `
+          <tr class="hover:bg-bg-hover/60">
+            <td class="p-2 text-slate-300">${c.checkedAtWib || c.checkedAtUtc || '-'}</td>
+            <td class="p-2 font-bold text-white">${c.activeBin ?? (c.inRange ? 'IN_RANGE' : 'OUT_OF_RANGE')}</td>
+            <td class="p-2 text-slate-300">${c.poolPrice ? '$' + Number(c.poolPrice).toFixed(4) : '-'}</td>
+            <td class="p-2 text-right text-amber-400">${c.feeActiveTvlRatioPct ? Number(c.feeActiveTvlRatioPct).toFixed(3) + '%' : '-'}</td>
+            <td class="p-2 text-right font-bold ${c.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${c.pnlUsd != null ? (c.pnlUsd >= 0 ? '+' : '') + '$' + Number(c.pnlUsd).toFixed(2) : '-'}</td>
+            <td class="p-2 text-slate-400 truncate max-w-xs" title="${c.evalReason}">${c.evalReason || (c.inRange ? 'IN_RANGE' : 'OUT_OF_RANGE')}</td>
+          </tr>
+        `).join('');
+
+        tbody.innerHTML = liveRowHtml + checksHtml;
+      }
+
+      document.getElementById('trade-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeTradeModal() {
+      document.getElementById('trade-modal').classList.add('hidden');
+    }
+
+    function setTradingMode(mode) {
+      currentTradingMode = mode;
+      selectedDateFilter = null;
+      selectedMonth = null;
+
+      const btnPaper = document.getElementById('btn-mode-paper');
+      const btnReal = document.getElementById('btn-mode-real');
+      const qPaper = document.getElementById('mobile-quick-paper');
+      const qReal = document.getElementById('mobile-quick-real');
+      const dPaper = document.getElementById('drawer-btn-paper');
+      const dReal = document.getElementById('drawer-btn-real');
+      const realCard = document.getElementById('real-trading-info-card');
+
+      if (mode === 'paper') {
+        if (btnPaper) btnPaper.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm';
+        if (btnReal) btnReal.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200';
+        if (qPaper) qPaper.className = 'px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-500/20 text-emerald-300';
+        if (qReal) qReal.className = 'px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400';
+        if (dPaper) dPaper.className = 'p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2';
+        if (dReal) dReal.className = 'p-2.5 rounded-xl border border-border-main bg-bg-main text-slate-400 text-xs font-semibold flex items-center justify-center gap-2';
+        if (realCard) realCard.classList.add('hidden');
+      } else {
+        if (btnReal) btnReal.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm';
+        if (btnPaper) btnPaper.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200';
+        if (qReal) qReal.className = 'px-2 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/20 text-cyan-300';
+        if (qPaper) qPaper.className = 'px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400';
+        if (dReal) dReal.className = 'p-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 text-xs font-semibold flex items-center justify-center gap-2';
+        if (dPaper) dPaper.className = 'p-2.5 rounded-xl border border-border-main bg-bg-main text-slate-400 text-xs font-semibold flex items-center justify-center gap-2';
+        if (realCard) realCard.classList.remove('hidden');
+      }
+
+      renderAll();
+    }
+
+    function toggleTimezone() {
+      currentTimezone = currentTimezone === 'WIB' ? 'UTC' : 'WIB';
+      const labelText = `${currentTimezone} (${currentTimezone === 'WIB' ? 'UTC+7' : 'UTC+0'})`;
+      const tzDesktop = document.getElementById('tz-label');
+      const tzDrawer = document.getElementById('drawer-tz-label');
+      if (tzDesktop) tzDesktop.textContent = labelText;
+      if (tzDrawer) tzDrawer.textContent = labelText;
+      renderTradesTable(getActiveDataset());
+    }
+
+    function formatDateTimeShort(isoString) {
+      if (!isoString) return '-';
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+      return wib.toISOString().slice(11, 16) + ' WIB';
+    }
+
+    function downloadExport(type) {
+      const url = `/api/export/${type}?engine=${currentEngine}&mode=${currentTradingMode}`;
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', '');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      const menu = document.getElementById('export-menu');
+      if (menu) menu.classList.add('hidden');
+      showToast(`Ekspor ${type.toUpperCase()} (${currentEngine} - ${currentTradingMode}) sedang diunduh`);
+    }
+
+    function toggleExportMenu() {
+      const menu = document.getElementById('export-menu');
+      if (menu) menu.classList.toggle('hidden');
+    }
+
+    window.addEventListener('click', (e) => {
+      if (!e.target.closest('#export-menu') && !e.target.closest('button[onclick="toggleExportMenu()"]')) {
+        const menu = document.getElementById('export-menu');
+        if (menu) menu.classList.add('hidden');
+      }
+    });
+
+    function showToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-6 right-6 z-50 bg-bg-card border border-emerald-500/50 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold animate-in slide-in-from-bottom duration-200';
+      toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i> <span>${msg}</span>`;
+      document.body.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Auto-refresh every 45s
+    setInterval(() => {
+      fetchDashboardData(false);
+    }, 45000);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      currentEngine = detectInitialEngine();
       fetchDashboardData(false);
     });
   </script>

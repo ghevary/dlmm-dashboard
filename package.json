@@ -1,8 +1,8 @@
-﻿{
-  "name": "meridian-dlmm-dashboard",
-  "version": "1.0.0",
+{
+  "name": "meridian-multi-chain-dashboard",
+  "version": "2.1.0",
   "type": "module",
-  "description": "PnL & Analytics Dashboard for Meteora DLMM Meridian Trading Bot",
+  "description": "Multi-Chain PnL and Analytics Dashboard for Meteora DLMM and Robinhood CLMM Trading Bots",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
