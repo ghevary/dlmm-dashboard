@@ -249,7 +249,7 @@
         </div>
         <div>
           <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <h2 class="text-xs sm:text-sm font-semibold text-white">Agus Profit • Meteora DLMM Scanner</h2>
+            <h2 id="banner-agent-name" class="text-xs sm:text-sm font-semibold text-white">Agus Profit • Meteora DLMM Scanner</h2>
             <span id="banner-mode-badge" class="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Paper (Cron 6x/day)
             </span>
@@ -810,915 +810,10 @@
         </button>
       </div>
     </div>
-  </div>  <!-- APPLICATION JAVASCRIPT LOGIC -->
+  </div>
+
+<!-- APPLICATION JAVASCRIPT LOGIC -->
   <script>
-    let fullData = null;
-    let currentTradingMode = 'paper';
-    let currentTimezone = 'WIB';
-    let selectedMonth = null;
-    let selectedDateFilter = null;
-    let equityChartInstance = null;
-    let dailyPnlChartInstance = null;
-
-    function toggleMobileMenu() {
-      const drawer = document.getElementById('mobile-drawer');
-      const icon = document.getElementById('hamburger-icon');
-      if (drawer.classList.contains('hidden')) {
-        drawer.classList.remove('hidden');
-        if (icon) icon.setAttribute('data-lucide', 'x');
-      } else {
-        drawer.classList.add('hidden');
-        if (icon) icon.setAttribute('data-lucide', 'menu');
-      }
-      lucide.createIcons();
-    }
-
-    function getActiveDataset() {
-      if (!fullData) return { kpis: {}, pools: [], dailyPnl: {}, monthlyStats: [], equityGrowthSeries: [], trades: [] };
-      return currentTradingMode === 'paper' ? (fullData.paper || {}) : (fullData.real || {});
-    }
-
-    async function fetchDashboardData(isManual = false) {
-      const refreshIcon = document.getElementById('refresh-icon');
-      if (refreshIcon) refreshIcon.classList.add('animate-spin');
-
-      try {
-        const response = await fetch('/api/data');
-        if (!response.ok) throw new Error('Network error fetching data');
-        fullData = await response.json();
-        
-        renderAll();
-        if (isManual) {
-          showToast('Data berhasil disinkronkan dari VPS!');
-        }
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-      } finally {
-        if (refreshIcon) refreshIcon.classList.remove('animate-spin');
-      }
-    }
-
-    function renderAll() {
-      if (!fullData) return;
-
-      const activeData = getActiveDataset();
-      renderNavBadges();
-      renderBotInfo();
-      renderKPIs(activeData);
-      renderActivePosition(activeData);
-      renderMonthlyCalendar(activeData);
-      renderPoolsBreakdown(activeData);
-      renderCharts(activeData);
-      renderTradesTable(activeData);
-      lucide.createIcons();
-    }
-
-    function renderNavBadges() {
-      const paperCount = fullData.paper?.trades?.length || 0;
-      const realCount = fullData.real?.trades?.length || 0;
-      document.getElementById('nav-paper-count').textContent = paperCount;
-      document.getElementById('nav-real-count').textContent = realCount;
-      document.getElementById('drawer-paper-count').textContent = paperCount;
-      document.getElementById('drawer-real-count').textContent = realCount;
-    }
-
-    function renderBotInfo() {
-      const bot = fullData.botInfo || {};
-      const activeData = getActiveDataset();
-      const kpis = activeData.kpis || {};
-      
-      const badge = document.getElementById('banner-mode-badge');
-      const subtitle = document.getElementById('banner-subtitle');
-
-      if (currentTradingMode === 'paper') {
-        badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1';
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Paper (Cron 6x/day)';
-        subtitle.innerHTML = `Jadwal: <span class="font-mono text-slate-300">Setiap 4 Jam</span> • Compounding Sizing: <span class="font-mono text-brand-sol font-semibold">$${(kpis.currentCompoundingSize || 95.04).toFixed(2)}</span>`;
-      } else {
-        badge.className = 'px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center gap-1';
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> Real Standby (On-Chain Safe)';
-        subtitle.innerHTML = `Wallet: <span class="font-mono text-slate-300">9uNSXiB9...SBR</span> • Posisi Real: <span class="font-mono text-cyan-300 font-semibold">0 Real Trades</span>`;
-      }
-
-      const lastRunEl = document.getElementById('cron-last-run');
-      if (lastRunEl && bot.lastRunAtUtc) {
-        lastRunEl.textContent = formatDateTimeShort(bot.lastRunAtUtc);
-      }
-
-      const nextRunEl = document.getElementById('cron-next-run');
-      if (nextRunEl && bot.nextRunAtUtc) {
-        nextRunEl.textContent = formatDateTimeShort(bot.nextRunAtUtc);
-      }
-
-      const runsDoneEl = document.getElementById('cron-runs-done');
-      if (runsDoneEl) runsDoneEl.textContent = bot.runsCompleted || '427';
-    }
-
-    function renderKPIs(activeData) {
-      const k = activeData.kpis || {};
-      const isPaper = currentTradingMode === 'paper';
-
-      document.getElementById('kpi-equity-label').textContent = isPaper ? 'Total Paper Equity' : 'Real On-Chain Equity';
-      document.getElementById('kpi-equity').textContent = `$${(k.totalEquityUsd || 0).toFixed(2)}`;
-      
-      const roiEl = document.getElementById('kpi-roi');
-      roiEl.textContent = `${k.roiPct >= 0 ? '+' : ''}${(k.roiPct || 0).toFixed(2)}% ROI`;
-      roiEl.className = `text-[11px] sm:text-xs font-mono font-semibold px-2 py-0.5 rounded-md ${k.roiPct > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}`;
-
-      document.getElementById('kpi-base-val').textContent = `$${(k.baseCapitalUsd || 0).toFixed(2)}`;
-      document.getElementById('kpi-open-sub').textContent = `${(k.openPnlUsd || 0) >= 0 ? '+' : ''}$${(k.openPnlUsd || 0).toFixed(2)}`;
-      
-      const realPnlEl = document.getElementById('kpi-realized-pnl');
-      realPnlEl.textContent = `${(k.realizedPnlUsd || 0) >= 0 ? '+' : ''}$${(k.realizedPnlUsd || 0).toFixed(2)}`;
-      realPnlEl.className = `text-lg sm:text-2xl font-bold font-mono ${(k.realizedPnlUsd || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
-      
-      document.getElementById('kpi-closed-trades-count').textContent = `${k.closedTrades || 0} Trades`;
-      document.getElementById('kpi-total-gains').textContent = `+$${(k.totalGainUsd || 0).toFixed(2)}`;
-      document.getElementById('kpi-total-loss').textContent = `-$${(k.totalLossUsd || 0).toFixed(2)}`;
-      
-      document.getElementById('kpi-winrate').textContent = `${(k.winRatePct || 0).toFixed(1)}%`;
-      document.getElementById('kpi-wins').textContent = `${k.wins || 0}W`;
-      document.getElementById('kpi-losses').textContent = `${k.losses || 0}L`;
-      
-      document.getElementById('kpi-winrate-bar').style.width = `${k.winRatePct || 0}%`;
-      document.getElementById('kpi-lossrate-bar').style.width = `${100 - (k.winRatePct || 0)}%`;
-
-      document.getElementById('kpi-profit-factor').textContent = `${(k.profitFactor || 0).toFixed(1)}x`;
-      document.getElementById('kpi-total-fees').textContent = `+$${(k.totalFeesUsd || 0).toFixed(2)}`;
-    }
-
-    function renderActivePosition(activeData) {
-      const container = document.getElementById('active-position-container');
-      const openTrades = activeData.trades?.filter(t => t.status.includes('OPEN')) || [];
-
-      if (openTrades.length === 0) {
-        if (currentTradingMode === 'real') {
-          container.innerHTML = `
-            <div class="glass-card rounded-2xl p-3.5 sm:p-4 border border-border-main flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-slate-400">
-              <div class="flex items-center gap-2">
-                <i data-lucide="info" class="w-4 h-4 text-cyan-400 flex-shrink-0"></i>
-                <span><strong>Real Trading Mode Aktif:</strong> Belum ada transaksi real on-chain. Silakan beralih ke <strong>Paper Trading</strong> untuk 40 data simulasi.</span>
-              </div>
-              <button onclick="setTradingMode('paper')" class="w-full sm:w-auto px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold hover:bg-emerald-500/30 transition text-center">
-                Buka Paper Trading
-              </button>
-            </div>
-          `;
-        } else {
-          container.innerHTML = '';
-        }
-        return;
-      }
-
-      const pos = openTrades[0];
-      const livePriceStr = pos.currentPrice ? `$${pos.currentPrice.toFixed(2)}` : '-';
-      const entryPriceStr = pos.entryPrice ? `$${pos.entryPrice.toFixed(2)}` : '-';
-
-      container.innerHTML = `
-        <div class="glass-card rounded-2xl p-4 sm:p-5 border-l-4 border-l-brand-sol glow-emerald space-y-3">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-            <div class="flex items-center gap-2.5 sm:gap-3">
-              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-brand-sol font-bold text-xs sm:text-sm flex-shrink-0">
-                ${pos.poolName.split('-')[0]}
-              </div>
-              <div>
-                <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                  <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    ACTIVE POSITION #${pos.id.replace('trade_', '')} (${currentTradingMode.toUpperCase()})
-                  </span>
-                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono font-semibold flex items-center gap-1">
-                    <i data-lucide="zap" class="w-3 h-3 text-cyan-400"></i> Live On-Chain Quote
-                  </span>
-                </div>
-                <h3 class="text-sm sm:text-base font-bold text-white mt-1">${pos.poolName} • Capital: <strong class="text-brand-sol font-mono">$${pos.capitalUsd.toFixed(2)}</strong></h3>
-                <p class="text-[11px] text-slate-400 font-mono">
-                  Opened: ${pos.entryDateInfo?.wibString || ''} • Durasi: <strong class="text-slate-200">${pos.holdingHours} Jam</strong>
-                </p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-3 sm:flex items-center gap-3 sm:gap-6 font-mono text-xs border-t sm:border-t-0 border-border-main pt-2 sm:pt-0">
-              <div>
-                <span class="text-slate-500 block text-[9px] uppercase">Live Unrealized</span>
-                <span class="text-sm sm:text-lg font-bold ${pos.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
-                  ${pos.pnlUsd >= 0 ? '+' : ''}$${pos.pnlUsd.toFixed(2)} (${pos.pnlPct >= 0 ? '+' : ''}${pos.pnlPct.toFixed(2)}%)
-                </span>
-              </div>
-              <div>
-                <span class="text-slate-500 block text-[9px] uppercase">Harga SOL Live</span>
-                <span class="text-sm sm:text-base font-semibold text-slate-200">${livePriceStr}</span>
-                <span class="text-[9px] text-slate-500 block font-mono">Entry: ${entryPriceStr}</span>
-              </div>
-              <div class="text-right sm:text-left">
-                <span class="text-slate-500 block text-[9px] uppercase">Active Bin</span>
-                <span class="text-sm sm:text-base font-bold text-brand-sol">${pos.bins.closeActiveBin ?? pos.bins.entryActiveBin}</span>
-                <span class="text-[9px] ${pos.bins.inRange ? 'text-emerald-400' : 'text-rose-400'} block font-mono font-semibold">
-                  ${pos.bins.inRange ? 'In Range' : 'Out of Range'}
-                </span>
-              </div>
-            </div>
-
-            <button onclick="openTradeModal('${pos.id}')" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold transition text-center flex items-center justify-center gap-1.5">
-              <i data-lucide="activity" class="w-3.5 h-3.5"></i>
-              <span>View Live Audit</span>
-            </button>
-          </div>
-
-          <div class="bg-bg-main/60 p-2.5 rounded-xl border border-border-main/60 flex items-center justify-between text-[11px] font-mono text-slate-400 flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-              <i data-lucide="radio" class="w-3.5 h-3.5 text-brand-sol animate-pulse"></i>
-              <span>Live Quote Sync: <strong>${pos.poolName} (Bin ${pos.bins.closeActiveBin})</strong> • Real-Time On-Chain Quote</span>
-            </div>
-            <div class="text-slate-500">
-              Range: <strong class="text-slate-300">${pos.bins.lowerBin}..${pos.bins.upperBin}</strong> (Step ${pos.bins.binStepBps || 1} bps)
-            </div>
-          </div>
-        </div>
-      `;
-    }    function renderMonthlyCalendar(activeData) {
-      const dailyMap = activeData.dailyPnl || {};
-      const monthlyStats = activeData.monthlyStats || [];
-      const selectEl = document.getElementById('calendar-month-select');
-
-      if (monthlyStats.length === 0) {
-        selectEl.innerHTML = `<option value="none">Belum Ada Transaksi</option>`;
-        document.getElementById('month-summary-bar').innerHTML = `
-          <div class="col-span-2 sm:col-span-4 text-center py-2 text-slate-500 font-sans text-xs">
-            Tidak ada data transaksi pada mode ${currentTradingMode === 'paper' ? 'Paper' : 'Real'}.
-          </div>
-        `;
-        document.getElementById('calendar-grid').innerHTML = `
-          <div class="col-span-7 text-center py-6 text-slate-500 font-sans text-xs bg-bg-main/40 rounded-xl border border-border-main/50">
-            Belum ada rekam transaksi ${currentTradingMode === 'paper' ? 'Paper' : 'Real'} yang tercatat.
-          </div>
-        `;
-        document.getElementById('btn-clear-date-filter').classList.add('hidden');
-        return;
-      }
-
-      const monthsAvailable = monthlyStats.map(m => m.month);
-      if (!selectedMonth || !monthsAvailable.includes(selectedMonth)) {
-        selectedMonth = monthsAvailable[0];
-      }
-
-      selectEl.innerHTML = monthsAvailable.map(m => {
-        const [y, mo] = m.split('-');
-        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-        const name = `${monthNames[parseInt(mo, 10) - 1]} ${y}`;
-        return `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${name}</option>`;
-      }).join('');
-
-      const currentMonthData = monthlyStats.find(m => m.month === selectedMonth) || {
-        pnlUsd: 0, tradeCount: 0, winCount: 0, lossCount: 0, greenDaysCount: 0, redDaysCount: 0
-      };
-
-      const summaryBar = document.getElementById('month-summary-bar');
-      summaryBar.innerHTML = `
-        <div>
-          <span class="text-slate-500 block text-[9px] uppercase">Total Month PnL</span>
-          <span class="text-xs sm:text-sm font-bold ${currentMonthData.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
-            ${currentMonthData.pnlUsd >= 0 ? '+' : ''}$${currentMonthData.pnlUsd.toFixed(2)}
-          </span>
-        </div>
-        <div>
-          <span class="text-slate-500 block text-[9px] uppercase">Win vs Loss</span>
-          <span class="text-xs sm:text-sm font-semibold text-slate-200">
-            <strong class="text-emerald-400">${currentMonthData.greenDaysCount || 0}H</strong> / <strong class="text-rose-400">${currentMonthData.redDaysCount || 0}M</strong>
-          </span>
-        </div>
-        <div>
-          <span class="text-slate-500 block text-[9px] uppercase">Month Trades</span>
-          <span class="text-xs sm:text-sm font-semibold text-slate-200">${currentMonthData.tradeCount || 0} Trades</span>
-        </div>
-        <div>
-          <span class="text-slate-500 block text-[9px] uppercase">Best Day</span>
-          <span class="text-xs sm:text-sm font-bold text-emerald-400">
-            ${currentMonthData.bestDayPnl > -Infinity ? '+$' + currentMonthData.bestDayPnl.toFixed(2) : '-'}
-          </span>
-        </div>
-      `;
-
-      const [yearStr, monthStr] = selectedMonth.split('-');
-      const year = parseInt(yearStr, 10);
-      const monthIndex = parseInt(monthStr, 10) - 1;
-
-      const firstDay = new Date(year, monthIndex, 1);
-      const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-      
-      let startDayOfWeek = firstDay.getDay() - 1;
-      if (startDayOfWeek === -1) startDayOfWeek = 6;
-
-      const gridEl = document.getElementById('calendar-grid');
-      let cellsHtml = '';
-
-      for (let i = 0; i < startDayOfWeek; i++) {
-        cellsHtml += `<div class="cal-cell rounded-xl bg-bg-main/30 border border-border-main/20 opacity-20"></div>`;
-      }
-
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${yearStr}-${monthStr.padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const dayData = dailyMap[dateStr];
-        const isSelected = selectedDateFilter === dateStr;
-
-        if (dayData && dayData.tradeCount > 0) {
-          const isProfit = dayData.pnlUsd >= 0;
-          const pnlShort = isProfit 
-            ? `+$${Math.abs(dayData.pnlUsd) >= 10 ? dayData.pnlUsd.toFixed(1) : dayData.pnlUsd.toFixed(2)}`
-            : `-$${Math.abs(dayData.pnlUsd) >= 10 ? Math.abs(dayData.pnlUsd).toFixed(1) : Math.abs(dayData.pnlUsd).toFixed(2)}`;
-          
-          const pnlFull = `${isProfit ? '+' : ''}$${dayData.pnlUsd.toFixed(2)}`;
-          const pnlClass = isProfit ? 'text-emerald-400' : 'text-rose-400';
-          const bgClass = isProfit ? 'bg-emerald-500/15 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-rose-500/15 border-rose-500/30 hover:bg-rose-500/25';
-          const selectedRing = isSelected ? 'ring-2 ring-brand-purple border-brand-purple' : '';
-
-          cellsHtml += `
-            <div onclick="filterByDate('${dateStr}')" class="cal-cell rounded-xl p-1 sm:p-2 flex flex-col justify-between cursor-pointer border transition ${bgClass} ${selectedRing} group overflow-hidden">
-              <div class="flex justify-between items-center text-[9px] sm:text-[10px] font-mono leading-none">
-                <span class="font-bold text-slate-300 group-hover:text-white">${d}</span>
-                <span class="px-1 py-0.2 rounded bg-bg-main/90 text-slate-300 font-semibold text-[8px] sm:text-[9px]">${dayData.tradeCount}t</span>
-              </div>
-              <div class="text-right my-auto">
-                <div class="text-[9px] sm:text-xs font-bold font-mono ${pnlClass} leading-tight truncate" title="${pnlFull}">${pnlShort}</div>
-              </div>
-              <div class="flex items-center justify-between text-[8px] sm:text-[9px] text-slate-400 font-mono leading-none">
-                <span class="hidden sm:inline">${dayData.winCount}W/${dayData.lossCount}L</span>
-                <div class="flex sm:hidden items-center gap-0.5 ml-auto">
-                  ${dayData.winCount > 0 ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>' : ''}
-                  ${dayData.lossCount > 0 ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>' : ''}
-                </div>
-              </div>
-            </div>
-          `;
-        } else {
-          const selectedRing = isSelected ? 'ring-2 ring-brand-purple' : '';
-          cellsHtml += `
-            <div onclick="filterByDate('${dateStr}')" class="cal-cell rounded-xl p-1 sm:p-2 flex flex-col justify-between bg-bg-main/50 border border-border-main/50 text-slate-600 hover:border-border-light transition cursor-pointer ${selectedRing} overflow-hidden">
-              <div class="text-[9px] sm:text-[10px] font-mono font-medium leading-none">${d}</div>
-              <div class="text-right text-[8px] sm:text-[10px] font-mono text-slate-600 my-auto">-</div>
-              <div class="h-1 sm:h-2"></div>
-            </div>
-          `;
-        }
-      }
-
-      gridEl.innerHTML = cellsHtml;
-
-      const resetBtn = document.getElementById('btn-clear-date-filter');
-      if (selectedDateFilter) {
-        resetBtn.classList.remove('hidden');
-      } else {
-        resetBtn.classList.add('hidden');
-      }
-    }
-
-    function onMonthSelectChange(val) {
-      selectedMonth = val;
-      renderMonthlyCalendar(getActiveDataset());
-    }
-
-    function changeCalendarMonth(delta) {
-      const activeData = getActiveDataset();
-      const monthlyStats = activeData.monthlyStats || [];
-      const monthsAvailable = monthlyStats.map(m => m.month);
-      const currentIndex = monthsAvailable.indexOf(selectedMonth);
-      if (currentIndex !== -1) {
-        const nextIndex = currentIndex - delta;
-        if (nextIndex >= 0 && nextIndex < monthsAvailable.length) {
-          selectedMonth = monthsAvailable[nextIndex];
-          renderMonthlyCalendar(activeData);
-        }
-      }
-    }
-
-    function filterByDate(dateStr) {
-      if (selectedDateFilter === dateStr) {
-        selectedDateFilter = null;
-      } else {
-        selectedDateFilter = dateStr;
-      }
-      renderMonthlyCalendar(getActiveDataset());
-      renderTradesTable(getActiveDataset());
-    }
-
-    function clearDateFilter() {
-      selectedDateFilter = null;
-      renderMonthlyCalendar(getActiveDataset());
-      renderTradesTable(getActiveDataset());
-    }
-
-    function renderPoolsBreakdown(activeData) {
-      const pools = activeData.pools || [];
-      const container = document.getElementById('pools-list');
-      document.getElementById('pools-count-badge').textContent = `${pools.length} Pools`;
-
-      if (pools.length === 0) {
-        container.innerHTML = `
-          <div class="p-4 sm:p-6 text-center text-slate-500 font-sans text-xs bg-bg-main/50 rounded-xl border border-border-main">
-            Belum ada pool yang diperdagangkan pada mode ${currentTradingMode === 'paper' ? 'Paper' : 'Real'}.
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = pools.map(p => {
-        const pnlColor = p.totalPnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400';
-        return `
-          <div onclick="filterByPoolCard('${p.name}')" class="bg-bg-main/80 hover:bg-bg-hover p-2.5 sm:p-3.5 rounded-xl border border-border-main transition cursor-pointer space-y-1.5">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1.5">
-                <span class="font-bold text-white text-xs font-mono">${p.name}</span>
-                <span class="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-bg-card border border-border-main text-slate-400 font-mono">${p.totalTrades} trades</span>
-              </div>
-              <div class="text-right">
-                <span class="font-bold text-xs font-mono ${pnlColor}">
-                  ${p.totalPnlUsd >= 0 ? '+' : ''}$${p.totalPnlUsd.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-3 gap-1 text-[10px] sm:text-[11px] font-mono text-slate-400 border-t border-border-main/60 pt-1.5">
-              <div>Win: <strong class="text-white">${p.winRatePct}%</strong></div>
-              <div>Fees: <strong class="text-amber-400">+$${p.totalFeesUsd.toFixed(2)}</strong></div>
-              <div>Hold: <strong class="text-slate-300">${p.avgDurationHours}h</strong></div>
-            </div>
-
-            <div class="w-full bg-bg-card h-1 rounded-full overflow-hidden">
-              <div class="bg-gradient-to-r from-cyan-500 to-brand-sol h-full" style="width: ${Math.min(100, Math.max(10, p.winRatePct))}%"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function filterByPoolCard(poolName) {
-      document.getElementById('filter-pool').value = poolName;
-      applyTradeFilters();
-    }
-
-    function renderCharts(activeData) {
-      const growthSeries = activeData.equityGrowthSeries || [];
-      const dailyMap = activeData.dailyPnl || {};
-      const kpis = activeData.kpis || {};
-
-      document.getElementById('chart-equity-tag').textContent = `$${(kpis.totalEquityUsd || 0).toFixed(2)}`;
-      document.getElementById('chart-equity-sub').textContent = currentTradingMode === 'paper' 
-        ? 'Pertumbuhan modal dari $60.00 base capital'
-        : 'Performa real on-chain trading';
-
-      const equityCtx = document.getElementById('equityChart').getContext('2d');
-      if (equityChartInstance) equityChartInstance.destroy();
-
-      const labels = growthSeries.length > 0 ? growthSeries.map(s => s.tradeId.replace('trade_', '#')) : ['Start'];
-      const dataPoints = growthSeries.length > 0 ? growthSeries.map(s => s.equity) : [kpis.baseCapitalUsd || 0];
-
-      equityChartInstance = new Chart(equityCtx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Equity ($)',
-            data: dataPoints,
-            borderColor: currentTradingMode === 'paper' ? '#10B981' : '#06B6D4',
-            backgroundColor: currentTradingMode === 'paper' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(6, 182, 212, 0.08)',
-            fill: true,
-            tension: 0.35,
-            borderWidth: 2,
-            pointBackgroundColor: currentTradingMode === 'paper' ? '#10B981' : '#06B6D4',
-            pointBorderColor: '#080B10',
-            pointRadius: 2.5,
-            pointHoverRadius: 5,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => `Equity: $${ctx.parsed.y.toFixed(2)}`
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: { color: 'rgba(255,255,255,0.03)' },
-              ticks: { color: '#64748B', font: { family: 'Geist Mono', size: 9 }, maxTicksLimit: 8 }
-            },
-            y: {
-              grid: { color: 'rgba(255,255,255,0.05)' },
-              ticks: {
-                color: '#64748B',
-                font: { family: 'Geist Mono', size: 9 },
-                callback: (val) => `$${val}`
-              }
-            }
-          }
-        }
-      });
-
-      const dailyCtx = document.getElementById('dailyPnlChart').getContext('2d');
-      if (dailyPnlChartInstance) dailyPnlChartInstance.destroy();
-
-      const sortedDates = Object.keys(dailyMap).sort().slice(-14);
-      const barLabels = sortedDates.length > 0 ? sortedDates.map(d => d.slice(5)) : ['No Data'];
-      const barValues = sortedDates.length > 0 ? sortedDates.map(d => dailyMap[d].pnlUsd) : [0];
-      const barColors = barValues.map(v => v >= 0 ? '#10B981' : '#F43F5E');
-
-      dailyPnlChartInstance = new Chart(dailyCtx, {
-        type: 'bar',
-        data: {
-          labels: barLabels,
-          datasets: [{
-            data: barValues,
-            backgroundColor: barColors,
-            borderRadius: 3,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => `PnL: $${ctx.parsed.y.toFixed(2)}`
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { color: '#64748B', font: { family: 'Geist Mono', size: 9 }, maxTicksLimit: 7 }
-            },
-            y: {
-              grid: { color: 'rgba(255,255,255,0.05)' },
-              ticks: {
-                color: '#64748B',
-                font: { family: 'Geist Mono', size: 9 },
-                callback: (val) => `$${val}`
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function renderTradesTable(activeData) {
-      const allTrades = activeData.trades || [];
-      const isPaper = currentTradingMode === 'paper';
-      
-      document.getElementById('table-title').textContent = isPaper ? 'Riwayat Seluruh Trade (Paper)' : 'Riwayat Trade (Real On-Chain)';
-
-      const poolFilterEl = document.getElementById('filter-pool');
-      const uniquePools = Array.from(new Set(allTrades.map(t => t.poolName))).filter(Boolean);
-      poolFilterEl.innerHTML = `<option value="ALL">Semua Pool</option>` + uniquePools.map(p => `<option value="${p}">${p}</option>`).join('');
-
-      const poolFilter = poolFilterEl.value;
-      const statusFilter = document.getElementById('filter-status').value;
-      const searchFilter = document.getElementById('filter-search').value.toLowerCase().trim();
-
-      const filtered = allTrades.filter(t => {
-        if (poolFilter !== 'ALL' && t.poolName !== poolFilter) return false;
-        if (statusFilter === 'OPEN' && !t.status.includes('OPEN')) return false;
-        if (statusFilter === 'CLOSED' && !t.status.includes('CLOSED')) return false;
-        if (statusFilter === 'WIN' && t.pnlUsd < 0) return false;
-        if (statusFilter === 'LOSS' && t.pnlUsd >= 0) return false;
-
-        if (selectedDateFilter) {
-          const tradeDate = t.tradeDateInfo?.wibDate || t.entryDateInfo?.wibDate;
-          if (tradeDate !== selectedDateFilter) return false;
-        }
-
-        if (searchFilter) {
-          const matchPool = t.poolName.toLowerCase().includes(searchFilter);
-          const matchReason = (t.exitReason || '').toLowerCase().includes(searchFilter);
-          const matchId = t.id.toLowerCase().includes(searchFilter);
-          if (!matchPool && !matchReason && !matchId) return false;
-        }
-
-        return true;
-      });
-
-      document.getElementById('table-trades-count').textContent = `${filtered.length} Trades`;
-      document.getElementById('table-showing-info').textContent = `Menampilkan ${filtered.length} dari ${allTrades.length} trade${selectedDateFilter ? ` (Filter: ${selectedDateFilter})` : ''}`;
-
-      const tbody = document.getElementById('trades-table-body');
-      if (filtered.length === 0) {
-        const emptyMsg = isPaper
-          ? 'Tidak ada transaksi simulasi yang cocok dengan filter yang dipilih.'
-          : 'Belum ada transaksi real on-chain di wallet ini. Seluruh 39 transaksi tercatat di Paper Trading.';
-
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="11" class="py-6 text-center text-slate-500 font-sans text-xs">
-              ${emptyMsg}
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = filtered.map(t => {
-        const isClosed = t.status.includes('CLOSED');
-        const isWin = t.pnlUsd >= 0;
-        const pnlColor = isWin ? 'text-emerald-400' : 'text-rose-400';
-        const dateStr = currentTimezone === 'WIB' 
-          ? (t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString || '-')
-          : (t.tradeDateInfo?.iso?.slice(0, 16).replace('T', ' ') || '-');
-
-        return `
-          <tr onclick="openTradeModal('${t.id}')" class="hover:bg-bg-hover/80 transition cursor-pointer group">
-            <td class="py-2.5 px-3 font-semibold text-slate-400 group-hover:text-white">${t.id}</td>
-            <td class="py-2.5 px-3 text-slate-300 whitespace-nowrap">${dateStr}</td>
-            <td class="py-2.5 px-3 font-bold text-white">${t.poolName}</td>
-            <td class="py-2.5 px-3">
-              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isClosed ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">
-                ${t.status.replace('_PAPER', '').replace('_REAL', '')}
-              </span>
-            </td>
-            <td class="py-2.5 px-3 text-right text-slate-200">$${t.capitalUsd.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-right font-bold ${pnlColor}">${isWin ? '+' : ''}$${t.pnlUsd.toFixed(2)}</td>
-            <td class="py-2.5 px-3 text-right font-semibold ${pnlColor}">${isWin ? '+' : ''}${t.pnlPct.toFixed(2)}%</td>
-            <td class="py-2.5 px-3 text-right text-slate-400">${t.holdingHours > 0 ? t.holdingHours + 'h' : '-'}</td>
-            <td class="py-2.5 px-3 text-slate-400 text-[10px]">${t.bins.lowerBin}..${t.bins.upperBin}</td>
-            <td class="py-2.5 px-3 text-slate-400 truncate max-w-xs" title="${t.exitReason}">${t.exitReason}</td>
-            <td class="py-2.5 px-3 text-center">
-              <button class="px-2 py-1 rounded bg-bg-card group-hover:bg-brand-purple/20 text-slate-400 group-hover:text-purple-300 transition text-[10px]">
-                Detail
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function applyTradeFilters() {
-      renderTradesTable(getActiveDataset());
-    }
-
-    function openTradeModal(tradeId) {
-      const activeData = getActiveDataset();
-      const trade = activeData.trades?.find(t => t.id === tradeId);
-      if (!trade) return;
-
-      document.getElementById('modal-trade-title').textContent = `${trade.poolName} Position (${currentTradingMode.toUpperCase()})`;
-      document.getElementById('modal-trade-subtitle').textContent = `ID: ${trade.id} • Pool: ${trade.poolAddress || 'Meteora DLMM'}`;
-      
-      const badge = document.getElementById('modal-trade-status-badge');
-      badge.textContent = trade.status;
-      badge.className = `text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-medium ${trade.status.includes('OPEN') ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 border border-slate-700'}`;
-
-      const pnlEl = document.getElementById('modal-pnl-usd');
-      pnlEl.textContent = `${trade.pnlUsd >= 0 ? '+' : ''}$${trade.pnlUsd.toFixed(2)}`;
-      pnlEl.className = `text-sm sm:text-base font-bold ${trade.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
-
-      document.getElementById('modal-pnl-pct').textContent = `(${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%)`;
-      document.getElementById('modal-capital').textContent = `$${trade.capitalUsd.toFixed(2)}`;
-      document.getElementById('modal-fee').textContent = `+$${trade.feeUsd.toFixed(2)}`;
-      document.getElementById('modal-duration').textContent = `${trade.holdingHours} Jam`;
-
-      document.getElementById('modal-bin-lower').textContent = trade.bins.lowerBin;
-      document.getElementById('modal-bin-entry').textContent = trade.bins.entryActiveBin;
-      document.getElementById('modal-bin-upper').textContent = trade.bins.upperBin;
-      document.getElementById('modal-bin-close').textContent = `Exit Bin: ${trade.bins.closeActiveBin ?? '-'}`;
-      document.getElementById('modal-bin-step').textContent = `Bin Step: ${trade.bins.binStepBps || 20} bps`;
-
-      document.getElementById('modal-base-dlmm').textContent = `${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%`;
-      document.getElementById('modal-base-5050').textContent = `${trade.baselines.baseline5050Pct >= 0 ? '+' : ''}${trade.baselines.baseline5050Pct.toFixed(2)}%`;
-      document.getElementById('modal-base-volatile').textContent = `${trade.baselines.baselineVolatilePct >= 0 ? '+' : ''}${trade.baselines.baselineVolatilePct.toFixed(2)}%`;
-
-      document.getElementById('modal-exit-reason').textContent = trade.exitReason || 'No details';
-
-      const checks = trade.monitorChecks || [];
-      const tbody = document.getElementById('modal-checks-tbody');
-      let liveRowHtml = '';
-
-      if (trade.isLiveRealtime && trade.liveQuote) {
-        const lq = trade.liveQuote;
-        const livePnlColor = trade.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400';
-        liveRowHtml = `
-          <tr class="bg-emerald-500/10 border-b border-emerald-500/30">
-            <td class="p-2 text-emerald-300 font-semibold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              LIVE NOW (On-Chain)
-            </td>
-            <td class="p-2 font-bold text-brand-sol">${lq.activeBin ?? '-'}</td>
-            <td class="p-2 text-white font-semibold">${lq.price ? '$' + Number(lq.price).toFixed(4) : '-'}</td>
-            <td class="p-2 text-right text-amber-400 font-semibold">${lq.feeActiveTvlRatioPct ? lq.feeActiveTvlRatioPct.toFixed(3) + '%' : '-'}</td>
-            <td class="p-2 text-right font-bold ${livePnlColor}">${trade.pnlUsd >= 0 ? '+' : ''}$${trade.pnlUsd.toFixed(2)} (${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%)</td>
-            <td class="p-2 text-emerald-300 truncate max-w-xs font-semibold">⚡ Quote Real-Time Pool DLMM</td>
-          </tr>
-        `;
-      }
-
-      document.getElementById('modal-checks-count').textContent = checks.length + (trade.isLiveRealtime ? ' (Live + ' + checks.length + ' Cron Logs)' : '');
-
-      if (checks.length === 0 && !liveRowHtml) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-500">Tidak ada data monitor checks berkala tercatat.</td></tr>`;
-      } else {
-        const checksHtml = checks.map((c, i) => `
-          <tr class="hover:bg-bg-hover/60">
-            <td class="p-2 text-slate-300">${c.checkedAtWib || c.checkedAtUtc || '-'}</td>
-            <td class="p-2 font-bold text-white">${c.activeBin ?? '-'}</td>
-            <td class="p-2 text-slate-300">${c.poolPrice ? Number(c.poolPrice).toFixed(4) : '-'}</td>
-            <td class="p-2 text-right text-amber-400">${c.feeActiveTvlRatioPct ? c.feeActiveTvlRatioPct.toFixed(3) + '%' : '-'}</td>
-            <td class="p-2 text-right font-bold ${c.pnlUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${c.pnlUsd != null ? (c.pnlUsd >= 0 ? '+' : '') + '$' + Number(c.pnlUsd).toFixed(2) : '-'}</td>
-            <td class="p-2 text-slate-400 truncate max-w-xs" title="${c.evalReason}">${c.evalReason || (c.inRange ? 'IN_RANGE' : 'OUT_OF_RANGE')}</td>
-          </tr>
-        `).join('');
-
-        tbody.innerHTML = liveRowHtml + checksHtml;
-      }
-
-      document.getElementById('trade-modal').classList.remove('hidden');
-      lucide.createIcons();
-    }
-
-    function closeTradeModal() {
-      document.getElementById('trade-modal').classList.add('hidden');
-    }
-
-    function setTradingMode(mode) {
-      currentTradingMode = mode;
-      selectedDateFilter = null;
-      selectedMonth = null;
-
-      const btnPaper = document.getElementById('btn-mode-paper');
-      const btnReal = document.getElementById('btn-mode-real');
-      const qPaper = document.getElementById('mobile-quick-paper');
-      const qReal = document.getElementById('mobile-quick-real');
-      const dPaper = document.getElementById('drawer-btn-paper');
-      const dReal = document.getElementById('drawer-btn-real');
-      const realCard = document.getElementById('real-trading-info-card');
-
-      if (mode === 'paper') {
-        if (btnPaper) btnPaper.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm';
-        if (btnReal) btnReal.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200';
-        
-        if (qPaper) qPaper.className = 'px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-500/20 text-emerald-300';
-        if (qReal) qReal.className = 'px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400';
-
-        if (dPaper) dPaper.className = 'p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2';
-        if (dReal) dReal.className = 'p-2.5 rounded-xl border border-border-main bg-bg-main text-slate-400 text-xs font-semibold flex items-center justify-center gap-2';
-
-        if (realCard) realCard.classList.add('hidden');
-      } else {
-        if (btnReal) btnReal.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm';
-        if (btnPaper) btnPaper.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-400 hover:text-slate-200';
-
-        if (qReal) qReal.className = 'px-2 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/20 text-cyan-300';
-        if (qPaper) qPaper.className = 'px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400';
-
-        if (dReal) dReal.className = 'p-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 text-xs font-semibold flex items-center justify-center gap-2';
-        if (dPaper) dPaper.className = 'p-2.5 rounded-xl border border-border-main bg-bg-main text-slate-400 text-xs font-semibold flex items-center justify-center gap-2';
-
-        if (realCard) realCard.classList.remove('hidden');
-      }
-
-      renderAll();
-    }
-
-    function toggleTimezone() {
-      currentTimezone = currentTimezone === 'WIB' ? 'UTC' : 'WIB';
-      const labelText = `${currentTimezone} (${currentTimezone === 'WIB' ? 'UTC+7' : 'UTC+0'})`;
-      const tzDesktop = document.getElementById('tz-label');
-      const tzDrawer = document.getElementById('drawer-tz-label');
-      if (tzDesktop) tzDesktop.textContent = labelText;
-      if (tzDrawer) tzDrawer.textContent = labelText;
-      renderTradesTable(getActiveDataset());
-    }
-
-    function formatDateTimeShort(isoString) {
-      if (!isoString) return '-';
-      const d = new Date(isoString);
-      if (isNaN(d.getTime())) return isoString;
-      const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
-      return wib.toISOString().slice(11, 16) + ' WIB';
-    }
-
-        function downloadExport(type) {
-      const activeData = getActiveDataset();
-      const allTrades = activeData.trades || [];
-      const today = new Date().toISOString().slice(0, 10);
-      const filename = `meridian-dlmm-${currentTradingMode}-trades-${today}.${type}`;
-
-      if (type === 'csv') {
-        const headers = [
-          'Trade ID',
-          'Date (WIB)',
-          'Date (UTC)',
-          'Pool Name',
-          'Pool Address',
-          'Status',
-          'Capital (USD)',
-          'Net PnL (USD)',
-          'PnL (%)',
-          'Fees (USD)',
-          'Holding Hours',
-          'Entry Price',
-          'Exit/Current Price',
-          'Lower Bin',
-          'Entry Bin',
-          'Upper Bin',
-          'Exit/Current Bin',
-          'Bin Step (bps)',
-          'Baseline 50/50 (%)',
-          'Baseline Volatile (%)',
-          'Exit Reason / Status'
-        ];
-
-        const escapeCsv = (val) => {
-          if (val === null || val === undefined) return '""';
-          const str = String(val).replace(/"/g, '""');
-          return `"${str}"`;
-        };
-
-        const rows = allTrades.map(t => [
-          escapeCsv(t.id),
-          escapeCsv(t.tradeDateInfo?.wibString || t.entryDateInfo?.wibString || ''),
-          escapeCsv(t.tradeDateInfo?.iso || t.entryDateInfo?.iso || ''),
-          escapeCsv(t.poolName),
-          escapeCsv(t.poolAddress),
-          escapeCsv(t.status),
-          escapeCsv(t.capitalUsd),
-          escapeCsv(t.pnlUsd),
-          escapeCsv(t.pnlPct),
-          escapeCsv(t.feeUsd),
-          escapeCsv(t.holdingHours),
-          escapeCsv(t.entryPrice ?? ''),
-          escapeCsv(t.currentPrice ?? ''),
-          escapeCsv(t.bins?.lowerBin ?? ''),
-          escapeCsv(t.bins?.entryActiveBin ?? ''),
-          escapeCsv(t.bins?.upperBin ?? ''),
-          escapeCsv(t.bins?.closeActiveBin ?? ''),
-          escapeCsv(t.bins?.binStepBps ?? ''),
-          escapeCsv(t.baselines?.baseline5050Pct ?? ''),
-          escapeCsv(t.baselines?.baselineVolatilePct ?? ''),
-          escapeCsv(t.exitReason ?? '')
-        ].join(','));
-
-        const csvString = '\uFEFF' + [headers.map(escapeCsv).join(','), ...rows].join('\r\n');
-        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast(`✅ Berhasil mendownload ${allTrades.length} trade ke ${filename}!`);
-      } else if (type === 'json') {
-        const jsonString = JSON.stringify(activeData, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast(`✅ Berhasil mendownload ${allTrades.length} trade ke ${filename}!`);
-      }
-
-      const menu = document.getElementById('export-menu');
-      if (menu) menu.classList.add('hidden');
-    }
-
-    function toggleExportMenu() {
-      const menu = document.getElementById('export-menu');
-      if (menu) menu.classList.toggle('hidden');
-    }
-
-    window.addEventListener('click', (e) => {
-      if (!e.target.closest('#export-menu') && !e.target.closest('button[onclick="toggleExportMenu()"]')) {
-        const menu = document.getElementById('export-menu');
-        if (menu) menu.classList.add('hidden');
-      }
-    });
-
-    function showToast(msg) {
-      const toast = document.createElement('div');
-      toast.className = 'fixed bottom-6 right-6 z-50 bg-bg-card border border-emerald-500/50 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold animate-in slide-in-from-bottom duration-200';
-      toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i> <span>${msg}</span>`;
-      document.body.appendChild(toast);
-      lucide.createIcons();
-      setTimeout(() => toast.remove(), 3000);
-    }
-
-    setInterval(() => {
-      fetchDashboardData(false);
-    }, 60000);
-
-    document.addEventListener('DOMContentLoaded', () => {
-      fetchDashboardData(false);
-    });
-  </script>
-</body>
-</html<script>
     let allData = null;
     let currentEngine = 'meteora'; // 'meteora' | 'robinhood' | 'combined'
     let currentTradingMode = 'paper'; // 'paper' | 'real'
@@ -1728,7 +823,7 @@
     let equityChartInstance = null;
     let dailyPnlChartInstance = null;
 
-    // Helper to safely set element properties without crashing if missing
+    // Helper functions for safe DOM updates
     function safeSetText(id, text) {
       const el = document.getElementById(id);
       if (el) el.textContent = text;
@@ -1761,7 +856,7 @@
         drawer.classList.add('hidden');
         if (icon) icon.setAttribute('data-lucide', 'menu');
       }
-      lucide.createIcons();
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
     }
 
     function switchEngine(engine) {
@@ -1771,7 +866,6 @@
       selectedDateFilter = null;
       selectedMonth = null;
 
-      // Update URL without full page reload
       try {
         const newPath = engine === 'meteora' ? '/' : '/' + engine;
         window.history.pushState({ engine }, '', newPath);
@@ -1797,7 +891,7 @@
         const drawerBtn = document.getElementById(`drawer-tab-${eng}`);
         const isActive = eng === currentEngine;
 
-        // Desktop header tabs
+        // Desktop tabs
         if (btn) {
           if (isActive) {
             btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all bg-brand-purple/25 text-white border border-brand-purple/40 shadow-sm shadow-brand-purple/20';
@@ -1861,7 +955,7 @@
 
       try {
         const response = await fetch('/api/all');
-        if (!response.ok) throw new Error('Network error fetching bundle data');
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         allData = await response.json();
 
         updateEngineTabsUI();
@@ -1871,6 +965,7 @@
         }
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
+        showToast('Gagal memuat data: ' + err.message);
       } finally {
         if (refreshIcon) refreshIcon.classList.remove('animate-spin');
       }
@@ -1878,7 +973,6 @@
 
     function renderAll() {
       if (!allData) return;
-
       const activeData = getActiveDataset();
       renderNavBadges();
       renderBotInfo();
@@ -1889,7 +983,7 @@
       renderPoolsBreakdown(activeData);
       renderCharts(activeData);
       renderTradesTable(activeData);
-      lucide.createIcons();
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
     }
 
     function renderNavBadges() {
@@ -1936,7 +1030,7 @@
         const activeData = getActiveDataset();
         const kpis = activeData.kpis || {};
 
-        const titleEl = document.querySelector('h2.font-bold.text-white');
+        const titleEl = document.getElementById('banner-agent-name') || document.querySelector('h2.text-white');
         const badge = document.getElementById('banner-mode-badge');
         const subtitle = document.getElementById('banner-subtitle');
 
@@ -2077,13 +1171,6 @@
       } catch (err) {
         console.error('Error in renderKPIs:', err);
       }
-    }
-
-    function formatCompactNumber(num) {
-      if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-      if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-      if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
-      return Number(num || 0).toFixed(2);
     }
 
     function renderActivePosition(activeData) {
@@ -2722,7 +1809,7 @@
 
         const modal = document.getElementById('trade-modal');
         if (modal) modal.classList.remove('hidden');
-        lucide.createIcons();
+        if (window.lucide && lucide.createIcons) lucide.createIcons();
       } catch (err) {
         console.error('Error in openTradeModal:', err);
       }
@@ -2815,7 +1902,7 @@
       toast.className = 'fixed bottom-6 right-6 z-50 bg-bg-card border border-emerald-500/50 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold animate-in slide-in-from-bottom duration-200';
       toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i> <span>${msg}</span>`;
       document.body.appendChild(toast);
-      lucide.createIcons();
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
       setTimeout(() => toast.remove(), 3000);
     }
 
@@ -2824,8 +1911,10 @@
       fetchDashboardData(false);
     }, 45000);
 
+    // Initial boot on DOMContentLoaded
     document.addEventListener('DOMContentLoaded', () => {
       currentEngine = detectInitialEngine();
+      updateEngineTabsUI();
       fetchDashboardData(false);
     });
   </script>
