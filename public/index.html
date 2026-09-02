@@ -1415,11 +1415,31 @@
       }
     }
 
-    function onMonthChange(monthStr) {
+    function onMonthSelectChange(monthStr) {
+      if (!monthStr || monthStr === "none") return;
       selectedMonth = monthStr;
       selectedDateFilter = null;
       renderMonthlyCalendar(getActiveDataset());
       renderTradesTable(getActiveDataset());
+    }
+
+    function onMonthChange(monthStr) {
+      onMonthSelectChange(monthStr);
+    }
+
+    function changeCalendarMonth(direction) {
+      const activeData = getActiveDataset();
+      const monthlyStats = activeData.monthlyStats || [];
+      const months = monthlyStats.map(m => m.month);
+      if (months.length <= 1) return;
+
+      const currentIdx = months.indexOf(selectedMonth);
+      if (currentIdx === -1) return;
+
+      const targetIdx = currentIdx - direction;
+      if (targetIdx >= 0 && targetIdx < months.length) {
+        onMonthSelectChange(months[targetIdx]);
+      }
     }
 
     function filterByDate(dateKey) {
